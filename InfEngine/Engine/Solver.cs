@@ -1,6 +1,6 @@
 namespace InfEngine.Engine;
 
-public class Solver
+public partial class Solver
 {
     public const long MaxRecursion = 1000;
     
@@ -89,83 +89,6 @@ public class Solver
         }
 
         return candidates;
-    }
-
-    private Solver? BuildCandidate(TermMatch substitutions, 
-                                   Dictionary<BoundVar, FreeVar> varMap,
-                                   ImplClause clause, 
-                                   RecImplGoalChain implGoalChain)
-    {
-        var eqGoals = new List<EqGoal>();
-        var implGoals = this._implGoals.ToList();
-        implGoals.Remove(implGoalChain);
-        var implGoalStack = this._implGoalStack.ToHashSet();
-
-        // infinite recursion
-        if (!implGoalStack.Add(new ImplGoalChain(implGoalChain.Goal, implGoalChain.ChainId)))
-        {
-            return null;
-        }
-        
-        // test if the goal has already been solved
-        if (this._implGoalStack.Any(x => x.Goal.Trait == implGoalChain.Goal.Trait && x.Goal.Target == implGoalChain.Goal.Target))
-        {
-            var goal = this._implGoalStack.First(x => x.Goal.Trait == implGoalChain.Goal.Trait && x.Goal.Target == implGoalChain.Goal.Target);
-            var newInstantiations = this._instatiations.ToDictionary(entry => entry.Key, entry => entry.Value);
-            newInstantiations[implGoalChain.Goal.ResolvesTo] = newInstantiations[goal.Goal.ResolvesTo];
-            
-            // reuse proof
-            return new Solver()
-            {
-                _implGoals = implGoals,
-                _match = this._match,
-                _clauses = this._clauses,
-                _eqGoals = eqGoals,
-                _instatiations = newInstantiations,
-                _implGoalStack = implGoalStack
-            };
-        }
-
-        // possibly infinite recursion
-        if (implGoalChain.RecursionDepth > MaxRecursion)
-        {
-            return null;
-        }
-        
-        var instantiations = this._instatiations.ToDictionary(
-            entry => entry.Key,
-            entry => entry.Value);
-        
-        var inst = new Instatiation(
-            clause.Name, 
-            clause.TyParams.Select(p => substitutions.Substitutions[varMap[p]]).ToList(), 
-            clause.Constraints.Select(_ => $"$g{++_goalSeed}".ToString()).ToList());
-        
-        var substConstraints = clause.TyParams.ToDictionary(x => x, x => substitutions.Substitutions[varMap[x]]);
-        instantiations[implGoalChain.Goal.ResolvesTo] = inst;
-
-        foreach (var s in substitutions.Substitutions)
-        {
-            eqGoals.Add(new EqGoal(s.Key, s.Value));
-        }
-
-        for (int i = 0; i < clause.Constraints.Length; i++)
-        {
-            var c = clause.Constraints[i];
-            var n = inst.Constraints[i];
-            implGoals.Add(implGoalChain with { Goal = new ImplGoal(c.Target.Substitute(substConstraints), c.Trait.Substitute(substConstraints), n), RecursionDepth = implGoalChain.RecursionDepth + 1 });
-        }
-
-        var newSolver = new Solver()
-        {
-            _implGoals = implGoals,
-            _match = this._match,
-            _clauses = this._clauses,
-            _eqGoals = eqGoals,
-            _instatiations = instantiations,
-            _implGoalStack = implGoalStack
-        };
-        return newSolver;
     }
 
     private RecImplGoalChain? RetrieveImplGoal()
