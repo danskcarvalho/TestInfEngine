@@ -3,6 +3,7 @@ namespace InfEngine.Engine;
 public partial class Solver
 {
     public const long MaxRecursion = 100;
+    public const long MaxIterations = 50000;
     
     private List<EqGoal> _eqGoals = new();
     private List<RecImplGoalChain> _implGoals = new();
@@ -11,6 +12,7 @@ public partial class Solver
     private TermMatch? _match;
     private Dictionary<string, Instatiation> _instatiations = new();
     private static long _goalSeed = 0;
+    private readonly IterationCount _iterations;
 
     public SolverResult? Run()
     {
@@ -28,15 +30,22 @@ public partial class Solver
         this._eqGoals.AddRange(goals.OfType<EqGoal>());
         this._implGoals.AddRange(goals.OfType<ImplGoal>().Select((x, i) => new RecImplGoalChain(x, new ProofChain(), 0)));
         this._clauses.AddRange(clauses);
+        this._iterations = new IterationCount();
     }
 
-    private Solver()
+    private Solver(IterationCount iterationCount)
     {
-        
+        this._iterations = iterationCount;
+        this._iterations.Increment();
     }
 
     private Solver? InternalRun()
     {
+        if (this._iterations.Overflown())
+        {
+            return null;
+        }
+        
         if (!this.HandleEqGoals())
         {
             return null;
@@ -175,4 +184,19 @@ public partial class Solver
     }
 
     public record struct RecImplGoalChain(ImplGoal Goal, ProofChain Chain, long RecursionDepth);
+
+    public class IterationCount
+    {
+        private int _iterations;
+
+        public void Increment()
+        {
+            this._iterations++;
+        }
+
+        public bool Overflown()
+        {
+            return this._iterations > MaxIterations;
+        }
+    }
 }

@@ -40,7 +40,7 @@ public partial class Solver
         // Add requirements of the found instance to the solver
         AddRequirementsFromInstantiation(substitutions, varMap, clause, implGoalChain, inst, implGoals);
 
-        var newSolver = new Solver()
+        var newSolver = new Solver(this._iterations)
         {
             _implGoals = implGoals,
             _match = this._match,
@@ -107,7 +107,7 @@ public partial class Solver
             newInstantiations[implGoalChain.Goal.ResolvesTo] = newInstantiations[goalNames[0]];
 
             // reuse proof
-            return new Solver()
+            return new Solver(this._iterations)
             {
                 _implGoals = implGoals,
                 _match = this._match,
