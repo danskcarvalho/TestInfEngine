@@ -2,11 +2,11 @@ namespace InfEngine.Engine;
 
 public partial class Solver
 {
-    public const long MaxRecursion = 1000;
+    public const long MaxRecursion = 100;
     
     private List<EqGoal> _eqGoals = new();
     private List<RecImplGoalChain> _implGoals = new();
-    private HashSet<ImplGoalChain> _implGoalStack = new();
+    private Dictionary<ProvenImplGoal, List<string>> _provenImplGoals = new();
     private List<Clause> _clauses = new();
     private TermMatch? _match;
     private Dictionary<string, Instatiation> _instatiations = new();
@@ -26,7 +26,7 @@ public partial class Solver
     public Solver(List<Goal> goals, List<Clause> clauses)
     {
         this._eqGoals.AddRange(goals.OfType<EqGoal>());
-        this._implGoals.AddRange(goals.OfType<ImplGoal>().Select((x, i) => new RecImplGoalChain(x, i + 1, 0)));
+        this._implGoals.AddRange(goals.OfType<ImplGoal>().Select((x, i) => new RecImplGoalChain(x, new ProofChain(), 0)));
         this._clauses.AddRange(clauses);
     }
 
@@ -53,7 +53,7 @@ public partial class Solver
             return this;
         }
         
-        var candidates = GetCandidates(implGoal.Value.Goal, implGoal.Value.ChainId, implGoal.Value.RecursionDepth);
+        var candidates = GetCandidates(implGoal.Value);
 
         foreach (var candidate in candidates)
         {
@@ -65,7 +65,7 @@ public partial class Solver
         return null;
     }
 
-    private List<Solver> GetCandidates(ImplGoal implGoal, long chainId, long recursionDepth)
+    private List<Solver> GetCandidates(RecImplGoalChain implGoal)
     {
         List<Solver> candidates = new();
         foreach (var implClause in this._clauses.OfType<ImplClause>())
@@ -74,7 +74,7 @@ public partial class Solver
             var trait = implClause.Trait.Replace<BoundVar>(b => newVars[b]);
             var target = implClause.Target.Replace<BoundVar>(b => newVars[b]);
             
-            var subs = Term.TryMatch(new App("S", [target, trait]), new App("S", [implGoal.Target, implGoal.Trait]));
+            var subs = Term.TryMatch(new App("S", [target, trait]), new App("S", [implGoal.Goal.Target, implGoal.Goal.Trait]));
             if (subs == null)
             {
                 continue;
@@ -82,7 +82,7 @@ public partial class Solver
 
             if (newVars.Keys.All(k => subs.Substitutions.ContainsKey(newVars[k])))
             {
-                var candidate = BuildCandidate(subs, newVars, implClause, new RecImplGoalChain(implGoal, chainId, recursionDepth));
+                var candidate = BuildCandidate(subs, newVars, implClause, implGoal);
                 if (candidate != null)
                     candidates.Add(candidate);
             }
@@ -103,21 +103,21 @@ public partial class Solver
         }
 
         var nonGenericTarget = this._implGoals.Where(x => !x.Goal.Target.Any<FreeVar>())
-                                   .Select(x => (ImplGoal: x, CountFreeVars: x.Goal.CountFreeVars(), x.ChainId))
+                                   .Select(x => (ImplGoal: (RecImplGoalChain?)x, CountFreeVars: x.Goal.CountFreeVars()))
                                    .OrderBy(x => x.CountFreeVars)
                                    .FirstOrDefault();
 
-        if (nonGenericTarget.ChainId != 0)
+        if (nonGenericTarget.ImplGoal != null)
         {
             return nonGenericTarget.ImplGoal;
         }
 
         var implGoalWithLeastVars = this._implGoals
-                                    .Select(x => (ImplGoal: x, CountFreeVars: x.Goal.CountFreeVars(), x.ChainId, x.RecursionDepth))
+                                    .Select(x => (ImplGoal: (RecImplGoalChain?)x, CountFreeVars: x.Goal.CountFreeVars(), x.RecursionDepth))
                                     .OrderBy(x => x.CountFreeVars)
                                     .FirstOrDefault();
 
-        return implGoalWithLeastVars.ChainId == 0 ? null : new RecImplGoalChain(implGoalWithLeastVars.ImplGoal.Goal, implGoalWithLeastVars.ChainId, implGoalWithLeastVars.RecursionDepth);
+        return implGoalWithLeastVars.ImplGoal;
     }
 
     private bool HandleEqGoals()
@@ -147,10 +147,23 @@ public partial class Solver
         {
             for (int i = 0; i < this._implGoals.Count; i++)
             {
-                this._implGoals[i] = new RecImplGoalChain(this._implGoals[i].Goal.Substitute(this._match), this._implGoals[i].ChainId, this._implGoals[i].RecursionDepth);
+                this._implGoals[i] = new RecImplGoalChain(this._implGoals[i].Goal.Substitute(this._match), this._implGoals[i].Chain, this._implGoals[i].RecursionDepth);
             }
 
-            this._implGoalStack = new HashSet<ImplGoalChain>(this._implGoalStack.Select(i => i.Substitute(this._match))).ToHashSet();
+            var newProvenImplGoals = new Dictionary<ProvenImplGoal, List<string>>();
+            foreach (var (goal, constraintsNames) in this._provenImplGoals)
+            {
+                var newGoal = goal.Substitute(this._match);
+                if (newProvenImplGoals.ContainsKey(newGoal))
+                {
+                    newProvenImplGoals[newGoal].AddRange(constraintsNames);
+                }
+                else
+                {
+                    newProvenImplGoals[newGoal] = constraintsNames.ToList();
+                }
+            }
+            this._provenImplGoals = newProvenImplGoals;
             
             foreach (var instName in this._instatiations.Keys.ToList())
             {
@@ -160,14 +173,6 @@ public partial class Solver
 
         return true;
     }
-    
-    public readonly record struct ImplGoalChain(ImplGoal Goal, long ChainId)
-    {
-        public ImplGoalChain Substitute(TermMatch match)
-        {
-            return new ImplGoalChain(new ImplGoal(Goal.Target.Substitute(match), Goal.Trait.Substitute(match), Goal.ResolvesTo), ChainId);
-        }
-    }
 
-    public record struct RecImplGoalChain(ImplGoal Goal, long ChainId, long RecursionDepth);
+    public record struct RecImplGoalChain(ImplGoal Goal, ProofChain Chain, long RecursionDepth);
 }

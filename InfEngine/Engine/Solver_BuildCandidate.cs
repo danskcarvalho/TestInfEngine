@@ -10,10 +10,10 @@ public partial class Solver
         var eqGoals = new List<EqGoal>();
         var implGoals = this._implGoals.ToList();
         implGoals.Remove(implGoalChain);
-        var implGoalStack = this._implGoalStack.ToHashSet();
+        var provenGoals = this._provenImplGoals.ToDictionary(x => x.Key, x => x.Value);
 
         // infinite recursion
-        if (!TryAddGoalStack(implGoalChain, implGoalStack))
+        if (!TryAddProvenImplGoal(implGoalChain, provenGoals))
         {
             return null;
         }
@@ -47,7 +47,7 @@ public partial class Solver
             _clauses = this._clauses,
             _eqGoals = eqGoals,
             _instatiations = instantiations,
-            _implGoalStack = implGoalStack
+            _provenImplGoals =  provenGoals
         };
         return newSolver;
     }
@@ -62,11 +62,10 @@ public partial class Solver
         {
             var c = clause.Constraints[i];
             var n = inst.Constraints[i];
-            implGoals.Add(implGoalChain with
-            {
-                Goal = new ImplGoal(c.Target.Substitute(substConstraints), c.Trait.Substitute(substConstraints), n),
-                RecursionDepth = implGoalChain.RecursionDepth + 1
-            });
+            implGoals.Add(new RecImplGoalChain(
+                new ImplGoal(c.Target.Substitute(substConstraints), c.Trait.Substitute(substConstraints), n), 
+                new ProofChain(implGoalChain.Chain),
+                implGoalChain.RecursionDepth + 1));
         }
     }
 
@@ -96,16 +95,16 @@ public partial class Solver
         return instantiations;
     }
 
-    private Solver? TryReuseExistingProof(RecImplGoalChain implGoalChain, List<RecImplGoalChain> implGoals,
+    private Solver? TryReuseExistingProof(RecImplGoalChain implGoalChain, 
+                                          List<RecImplGoalChain> implGoals,
                                           List<EqGoal> eqGoals)
     {
-        if (this._implGoalStack.Any(x =>
-            x.Goal.Trait == implGoalChain.Goal.Trait && x.Goal.Target == implGoalChain.Goal.Target))
+        var goalNames = this._provenImplGoals.FirstOrDefault(x =>
+            x.Key.Target == implGoalChain.Goal.Target && x.Key.Trait == implGoalChain.Goal.Trait).Value;
+        if (goalNames != null && goalNames.Count != 0)
         {
-            var goal = this._implGoalStack.First(x =>
-                x.Goal.Trait == implGoalChain.Goal.Trait && x.Goal.Target == implGoalChain.Goal.Target);
             var newInstantiations = this._instatiations.ToDictionary(entry => entry.Key, entry => entry.Value);
-            newInstantiations[implGoalChain.Goal.ResolvesTo] = newInstantiations[goal.Goal.ResolvesTo];
+            newInstantiations[implGoalChain.Goal.ResolvesTo] = newInstantiations[goalNames[0]];
 
             // reuse proof
             return new Solver()
@@ -115,15 +114,26 @@ public partial class Solver
                 _clauses = this._clauses,
                 _eqGoals = eqGoals,
                 _instatiations = newInstantiations,
-                _implGoalStack = this._implGoalStack
+                _provenImplGoals = this._provenImplGoals.ToDictionary(x => x.Key, x => x.Value)
             };
         }
 
         return null;
     }
 
-    private static bool TryAddGoalStack(RecImplGoalChain implGoalChain, HashSet<ImplGoalChain> implGoalStack)
+    private static bool TryAddProvenImplGoal(RecImplGoalChain implGoalChain, Dictionary<ProvenImplGoal, List<string>> provenGoals)
     {
-        return implGoalStack.Add(new ImplGoalChain(implGoalChain.Goal, implGoalChain.ChainId));
+        ProofChain? chain = implGoalChain.Chain;
+        while (chain != null)
+        {
+            if (provenGoals.ContainsKey(implGoalChain.Goal.ToProvenGoal(chain)))
+            {
+                return false;
+            }
+            chain = chain.Parent;
+        }
+        
+        provenGoals[implGoalChain.Goal.ToProvenGoal(implGoalChain.Chain)] = [implGoalChain.Goal.ResolvesTo];
+        return true;
     }
 }

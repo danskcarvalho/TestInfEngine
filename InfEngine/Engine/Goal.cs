@@ -35,4 +35,21 @@ public record ImplGoal(Term Target, Term Trait, string ResolvesTo) : Goal
     }
 
     public override string ToString() => $"{Target}: {Trait} => {ResolvesTo}";
+
+    public ProvenImplGoal ToProvenGoal(ProofChain chain)
+    {
+        return new ProvenImplGoal(Target, Trait, chain);
+    }
+}
+
+public readonly record struct ProvenImplGoal(Term Target, Term Trait, ProofChain Chain)
+{
+    public ProvenImplGoal Substitute(TermMatch match) => new ProvenImplGoal(Target.Substitute(match), Trait.Substitute(match), this.Chain);
+
+    public override string ToString() => $"{Target}: {Trait}";
+}
+
+public class ProofChain(ProofChain? parent = null)
+{
+    public ProofChain? Parent { get; } = parent;
 }
