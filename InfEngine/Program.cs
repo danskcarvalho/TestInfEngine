@@ -11,6 +11,7 @@ var dictEq = Z.Impl1("listEq", (t1) => Z.Impl(list(t1), eq, Z.ImplC(list(list(t1
 var goal1 = Z.ImplG(list(str), eq, "goal1");
 var solver = new Solver([goal1], [strEq, dictEq]);
 var result = solver.Run();
+
 // infinite recursion
 Console.WriteLine(result);
 

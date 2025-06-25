@@ -34,4 +34,9 @@ public abstract partial record Term
     {
         return this.Substitute(match.Substitutions);
     }
+
+    public bool Contains(Term term)
+    {
+        return this.Any<Term>(t => t == term);
+    }
 }

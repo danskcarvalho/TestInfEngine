@@ -7,7 +7,7 @@ public partial class Solver
     
     private List<EqGoal> _eqGoals = new();
     private List<RecImplGoalChain> _implGoals = new();
-    private Dictionary<ProvenImplGoal, List<string>> _provenImplGoals = new();
+    private Dictionary<ProofChain, List<ProvenImplGoal>> _provenImplGoals = new();
     private List<Clause> _clauses = new();
     private TermMatch? _match;
     private Dictionary<string, Instatiation> _instatiations = new();
@@ -28,7 +28,7 @@ public partial class Solver
     public Solver(List<Goal> goals, List<Clause> clauses)
     {
         this._eqGoals.AddRange(goals.OfType<EqGoal>());
-        this._implGoals.AddRange(goals.OfType<ImplGoal>().Select((x, i) => new RecImplGoalChain(x, new ProofChain(), 0)));
+        this._implGoals.AddRange(goals.OfType<ImplGoal>().Select(x => new RecImplGoalChain(x, new ProofChain(), 0)));
         this._clauses.AddRange(clauses);
         this._iterations = new IterationCount();
     }
@@ -156,23 +156,15 @@ public partial class Solver
         {
             for (int i = 0; i < this._implGoals.Count; i++)
             {
-                this._implGoals[i] = new RecImplGoalChain(this._implGoals[i].Goal.Substitute(this._match), this._implGoals[i].Chain, this._implGoals[i].RecursionDepth);
+                this._implGoals[i] = new RecImplGoalChain(
+                    this._implGoals[i].Goal.Substitute(this._match), 
+                    this._implGoals[i].Chain, 
+                    this._implGoals[i].RecursionDepth);
             }
 
-            var newProvenImplGoals = new Dictionary<ProvenImplGoal, List<string>>();
-            foreach (var (goal, constraintsNames) in this._provenImplGoals)
-            {
-                var newGoal = goal.Substitute(this._match);
-                if (newProvenImplGoals.ContainsKey(newGoal))
-                {
-                    newProvenImplGoals[newGoal].AddRange(constraintsNames);
-                }
-                else
-                {
-                    newProvenImplGoals[newGoal] = constraintsNames.ToList();
-                }
-            }
-            this._provenImplGoals = newProvenImplGoals;
+            this._provenImplGoals = this._provenImplGoals.ToDictionary(
+                x => x.Key, 
+                x => x.Value.Select(y => y.Substitute(this._match)).ToList());
             
             foreach (var instName in this._instatiations.Keys.ToList())
             {

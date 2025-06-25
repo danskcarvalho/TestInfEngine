@@ -35,16 +35,23 @@ public record ImplGoal(Term Target, Term Trait, string ResolvesTo) : Goal
     }
 
     public override string ToString() => $"{Target}: {Trait} => {ResolvesTo}";
-
-    public ProvenImplGoal ToProvenGoal(ProofChain chain)
-    {
-        return new ProvenImplGoal(Target, Trait, chain);
-    }
 }
 
-public readonly record struct ProvenImplGoal(Term Target, Term Trait, ProofChain Chain)
+public readonly record struct ProvenImplGoal(
+    ImplClause Impl,
+    Term Target, 
+    Term Trait, 
+    ProofChain Chain,
+    IReadOnlyDictionary<BoundVar, Term> Args,
+    string ResolvesTo)
 {
-    public ProvenImplGoal Substitute(TermMatch match) => new ProvenImplGoal(Target.Substitute(match), Trait.Substitute(match), this.Chain);
+    public ProvenImplGoal Substitute(TermMatch match) => new ProvenImplGoal(
+        Impl,
+        Target.Substitute(match), 
+        Trait.Substitute(match), 
+        this.Chain,
+        this.Args.ToDictionary(x => x.Key, x => x.Value.Substitute(match)),
+        ResolvesTo);
 
     public override string ToString() => $"{Target}: {Trait}";
 }
@@ -52,4 +59,17 @@ public readonly record struct ProvenImplGoal(Term Target, Term Trait, ProofChain
 public class ProofChain(ProofChain? parent = null)
 {
     public ProofChain? Parent { get; } = parent;
+
+    public HashSet<ProofChain> GetChainLink()
+    {
+        HashSet<ProofChain> result = new HashSet<ProofChain>();
+        ProofChain? chain = this;
+        while (chain != null)
+        {
+            result.Add(chain);
+            chain = chain.Parent;
+        }
+
+        return result;
+    }
 }

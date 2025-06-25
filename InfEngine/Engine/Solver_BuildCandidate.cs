@@ -13,7 +13,7 @@ public partial class Solver
         var provenGoals = this._provenImplGoals.ToDictionary(x => x.Key, x => x.Value);
 
         // infinite recursion
-        if (!TryAddProvenImplGoal(implGoalChain, provenGoals))
+        if (!TryAddProvenImplGoal(implGoalChain, provenGoals, clause, substitutions, varMap))
         {
             return null;
         }
@@ -99,13 +99,14 @@ public partial class Solver
                                           List<RecImplGoalChain> implGoals,
                                           List<EqGoal> eqGoals)
     {
-        var goalNames = this._provenImplGoals.FirstOrDefault(x =>
-            x.Key.Target == implGoalChain.Goal.Target && x.Key.Trait == implGoalChain.Goal.Trait).Value;
-        if (goalNames != null && goalNames.Count != 0)
+        var goalName = this._provenImplGoals.SelectMany(x => x.Value).FirstOrDefault(x =>
+            x.Target == implGoalChain.Goal.Target && x.Trait == implGoalChain.Goal.Trait).ResolvesTo;
+        
+        if (goalName != null)
         {
             var newInstantiations = this._instatiations.ToDictionary(entry => entry.Key, entry => entry.Value);
-            newInstantiations[implGoalChain.Goal.ResolvesTo] = newInstantiations[goalNames[0]];
-
+            newInstantiations[implGoalChain.Goal.ResolvesTo] = newInstantiations[goalName];
+        
             // reuse proof
             return new Solver(this._iterations)
             {
@@ -121,19 +122,49 @@ public partial class Solver
         return null;
     }
 
-    private static bool TryAddProvenImplGoal(RecImplGoalChain implGoalChain, Dictionary<ProvenImplGoal, List<string>> provenGoals)
+    private static bool TryAddProvenImplGoal(RecImplGoalChain implGoalChain, 
+                                             Dictionary<ProofChain, List<ProvenImplGoal>> provenGoals,
+                                             ImplClause clause,
+                                             TermMatch substitutions,
+                                             Dictionary<BoundVar, FreeVar> varMap)
     {
         ProofChain? chain = implGoalChain.Chain;
+        var args = clause.TyParams.Select((p, i) => (I: i, S: substitutions.Substitutions[varMap[p]]))
+                         .ToDictionary(x => clause.TyParams[x.I], x => x.S);
+        
         while (chain != null)
         {
-            if (provenGoals.ContainsKey(implGoalChain.Goal.ToProvenGoal(chain)))
+            if (provenGoals.TryGetValue(chain, out var list))
             {
-                return false;
+                foreach (var pg in list)
+                {
+                    if (clause == pg.Impl && IsInfiniteRecursion(pg.Args, args))
+                    {
+                        return false;
+                    }
+                }
             }
             chain = chain.Parent;
         }
+
+        if (!provenGoals.ContainsKey(implGoalChain.Chain))
+        {
+            provenGoals[implGoalChain.Chain] = [];
+        }
         
-        provenGoals[implGoalChain.Goal.ToProvenGoal(implGoalChain.Chain)] = [implGoalChain.Goal.ResolvesTo];
+        provenGoals[implGoalChain.Chain].Add(
+            new ProvenImplGoal(
+                clause,
+                implGoalChain.Goal.Target,
+                implGoalChain.Goal.Trait, 
+                implGoalChain.Chain,
+                args,
+                implGoalChain.Goal.ResolvesTo));
         return true;
+    }
+
+    private static bool IsInfiniteRecursion(IReadOnlyDictionary<BoundVar, Term> onStackArgs, IReadOnlyDictionary<BoundVar, Term> newArgs)
+    {
+        return newArgs.All(x => x.Value.Contains(onStackArgs[x.Key]));
     }
 }
