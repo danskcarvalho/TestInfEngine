@@ -2,7 +2,7 @@ using InfEngine.Engine;
 
 namespace Tests;
 
-public class InstantitationTests
+public class ImplTests
 {
     [Fact]
     public void Test1()
@@ -55,7 +55,6 @@ public class InstantitationTests
         Assert.Null(result);
     }
     
-    
     [Fact]
     public void Test4()
     {
@@ -69,5 +68,25 @@ public class InstantitationTests
         var result = solver.Run();
         // infinite recursion
         Assert.Null(result);
+    }
+    
+    [Fact]
+    public void Test5()
+    {
+        var a = Z.Fv("a");
+        var str = Z.M("str");
+        var intt = Z.M("intt");
+        var eq = Z.M("Eq");
+        var related = Z.A2("Related");
+        var strEq = Z.Impl0("strEq", str, eq);
+        var listEq = Z.Impl2("relatedEq", (t1, t2) => Z.Impl(related(t1, t2), eq, Z.ImplC(t2, eq)));
+        var goal = Z.ImplG(related(intt, a), eq, "goal1");
+        var solver = new Solver([goal], [strEq, listEq]);
+        var result = solver.Run();
+        Assert.NotNull(result);
+        Assert.Contains("goal1", result.Value.Instantiations);
+        Assert.Equal("relatedEq", result.Value.Instantiations["goal1"].ImplName);
+        Assert.Contains(a, result.Value.Match.Substitutions);
+        Assert.Equal(str, result.Value.Match.Substitutions[a]);
     }
 }
