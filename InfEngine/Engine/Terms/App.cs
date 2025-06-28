@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-namespace InfEngine.Engine;
+namespace InfEngine.Engine.Terms;
 
 public record App(string Head, ImmutableArray<Term> Args) : Term
 {
@@ -55,6 +55,11 @@ public record App(string Head, ImmutableArray<Term> Args) : Term
             if (arg is T term)
             {
                 yield return term;
+            }
+
+            foreach (var descendant in arg.Descendants<T>())
+            {
+                yield return descendant;
             }
         }
     }

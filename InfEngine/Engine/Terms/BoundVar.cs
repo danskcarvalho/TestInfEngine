@@ -1,4 +1,4 @@
-namespace InfEngine.Engine;
+namespace InfEngine.Engine.Terms;
 
 public record BoundVar(long Index) : Term
 {

@@ -1,3 +1,7 @@
+using InfEngine.Engine.Clauses;
+using InfEngine.Engine.Goals;
+using InfEngine.Engine.Terms;
+
 namespace InfEngine.Engine;
 
 public partial class Solver

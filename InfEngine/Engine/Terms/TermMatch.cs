@@ -1,6 +1,10 @@
-namespace InfEngine.Engine;
+using InfEngine.Engine.Goals;
 
-public record TermMatch(IReadOnlyDictionary<FreeVar, Term> Substitutions)
+namespace InfEngine.Engine.Terms;
+
+public record TermMatch(
+    IReadOnlyDictionary<FreeVar, Term> Substitutions,
+    IReadOnlyList<EqGoal> LateGoals)
 {
     /// <summary>
     /// Gives, for each variable, a set of all the other variables it's equal to.
@@ -136,6 +140,6 @@ public record TermMatch(IReadOnlyDictionary<FreeVar, Term> Substitutions)
             result[key] = match.Substitutions[key];
         }
 
-        return new TermMatch(result);
+        return new TermMatch(result, this.LateGoals.Concat(match.LateGoals).ToList());
     }
 }

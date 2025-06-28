@@ -1,3 +1,5 @@
+using InfEngine.Engine.Terms;
+
 namespace InfEngine.Engine;
 
 public record Instatiation(string ImplName, IReadOnlyList<Term> Vars, IReadOnlyList<string> Constraints)

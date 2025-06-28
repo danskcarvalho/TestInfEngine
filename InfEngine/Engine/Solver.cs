@@ -1,3 +1,7 @@
+using InfEngine.Engine.Clauses;
+using InfEngine.Engine.Goals;
+using InfEngine.Engine.Terms;
+
 namespace InfEngine.Engine;
 
 public partial class Solver
@@ -11,7 +15,7 @@ public partial class Solver
     private List<Clause> _clauses = new();
     private TermMatch? _match;
     private Dictionary<string, Instatiation> _instatiations = new();
-    private static long _goalSeed = 0;
+    private static long _goalSeed;
     private readonly IterationCount _iterations;
 
     public SolverResult? Run()
@@ -22,7 +26,7 @@ public partial class Solver
             return null;
         }
 
-        return new SolverResult(solver._instatiations, solver._match ?? new TermMatch(new Dictionary<FreeVar, Term>()));
+        return new SolverResult(solver._instatiations, solver._match ?? new TermMatch(new Dictionary<FreeVar, Term>(), []));
     }
 
     public Solver(List<Goal> goals, List<Clause> clauses)
@@ -56,7 +60,7 @@ public partial class Solver
 
     private Solver? HandleImplGoals()
     {
-        var implGoal = this.RetrieveImplGoal();
+        var implGoal = this.ElectBestImplGoal();
         if (implGoal == null)
         {
             return this;
@@ -100,7 +104,7 @@ public partial class Solver
         return candidates;
     }
 
-    private RecImplGoalChain? RetrieveImplGoal()
+    private RecImplGoalChain? ElectBestImplGoal()
     {
         if (this._implGoals.Count == 0)
             return null;

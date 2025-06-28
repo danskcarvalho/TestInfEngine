@@ -1,4 +1,5 @@
 ﻿using InfEngine.Engine;
+using InfEngine.Engine.Terms;
 
 namespace Tests;
 

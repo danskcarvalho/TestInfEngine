@@ -1,12 +1,8 @@
 using System.Collections.Immutable;
+using InfEngine.Engine.Terms;
 
-namespace InfEngine.Engine;
+namespace InfEngine.Engine.Clauses;
 
-public abstract record Clause()
-{
-}
-
-// impl Name<TyParams> Target : Trait
 public record ImplClause(
     string Name,
     ImmutableArray<BoundVar> TyParams,
@@ -65,9 +61,4 @@ public record ImplClause(
     }
 
     public override string ToString() => $"impl {Name}<{string.Join(", ", TyParams)}> {Target}: {Trait} where {string.Join(", ", Constraints)}";
-}
-
-public record ImplConstraint(Term Target, Term Trait)
-{
-    public override string ToString() => $"{Target}: {Trait}";
 }
