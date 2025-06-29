@@ -4,7 +4,7 @@ namespace InfEngine.Engine.Terms;
 
 public record TermMatch(
     IReadOnlyDictionary<FreeVar, Term> Substitutions,
-    IReadOnlyList<EqGoal> LateGoals)
+    IReadOnlyList<EqGoal> LateEqGoals)
 {
     public static readonly TermMatch Empty = new(new Dictionary<FreeVar, Term>(), new List<EqGoal>());
 
@@ -144,8 +144,8 @@ public record TermMatch(
             result[key] = match.Substitutions[key];
         }
 
-        return new TermMatch(result, this.LateGoals.Concat(match.LateGoals).ToList());
+        return new TermMatch(result, this.LateEqGoals.Concat(match.LateEqGoals).ToList());
     }
     
-    public TermMatch PurgeGoals() => this with { LateGoals = [] };
+    public TermMatch PurgeGoals() => this with { LateEqGoals = [] };
 }

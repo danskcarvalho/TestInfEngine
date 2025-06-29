@@ -20,7 +20,7 @@ public partial class Solver
             }
 
             this._match = this._match.Merge(match);
-            this._eqGoals.AddRange(this._match.LateGoals);
+            this._eqGoals.AddRange(this._match.LateEqGoals);
             this._match = this._match.PurgeGoals();
         }
 

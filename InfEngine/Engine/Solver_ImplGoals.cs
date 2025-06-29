@@ -11,7 +11,8 @@ public partial class Solver
                                    ImplClause clause,
                                    RecImplGoalChain implGoalChain)
     {
-        var eqGoals = new List<EqGoal>(substitutions.LateGoals);
+        var eqGoals = new List<EqGoal>(substitutions.LateEqGoals);
+        AddAssocTraitGoals(eqGoals, implGoalChain.Goal);
         var implGoals = this._implGoals.ToList();
         implGoals.Remove(implGoalChain);
         var normGoals = this._normGoals.ToList();
@@ -59,6 +60,16 @@ public partial class Solver
             _normGoals = normGoals
         };
         return newSolver;
+    }
+
+    private void AddAssocTraitGoals(List<EqGoal> eqGoals, ImplGoal goal)
+    {
+        foreach (var goalAssocConstraint in goal.AssocConstraints)
+        {
+            var left = new Alias(goal.Target, goal.Trait, goalAssocConstraint.Key);
+            var right = goalAssocConstraint.Value;
+            eqGoals.Add(new EqGoal(left, right));   
+        }
     }
 
     private static void AddRequirementsFromInstantiation(TermMatch substitutions, Dictionary<BoundVar, FreeVar> varMap,
