@@ -1,3 +1,4 @@
+using InfEngine.Engine.Goals;
 using InfEngine.Engine.Terms;
 
 namespace InfEngine.Engine;
@@ -50,6 +51,16 @@ public partial class Solver
             this._provenImplGoals = this._provenImplGoals.ToDictionary(
                 x => x.Key,
                 x => x.Value.Select(y => y.Substitute(this._match)).ToList());
+            
+            Dictionary<(Term Target, Term Trait), ReuseImplGoal> newReuseImplGoals = new();
+
+            foreach (var reuseImplGoal in this._reuseImplGoals)
+            {
+                var key = (reuseImplGoal.Key.Target.Substitute(this._match), reuseImplGoal.Key.Trait.Substitute(this._match));
+                newReuseImplGoals[key] = reuseImplGoal.Value.Substitute(this._match);
+            }
+
+            this._reuseImplGoals = newReuseImplGoals;
 
             foreach (var instName in this._instatiations.Keys.ToList())
             {

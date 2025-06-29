@@ -12,7 +12,8 @@ public partial class Solver
     private List<EqGoal> _eqGoals = new();
     private List<RecNormGoalChain> _normGoals = new();
     private List<RecImplGoalChain> _implGoals = new();
-    private Dictionary<ProofChain, List<ProvenImplGoal>> _provenImplGoals = new();
+    private Dictionary<ProofChain, List<ProvenGoal>> _provenImplGoals = new();
+    private Dictionary<(Term Target, Term Trait), ReuseImplGoal> _reuseImplGoals = new();
     private List<Clause> _clauses = new();
     private TermMatch _match = TermMatch.Empty;
     private Dictionary<string, Instatiation> _instatiations = new();

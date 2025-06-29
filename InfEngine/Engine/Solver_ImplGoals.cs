@@ -8,30 +8,19 @@ public partial class Solver
 {
     private Solver? BuildCandidate(TermMatch substitutions,
                                    Dictionary<BoundVar, FreeVar> varMap,
-                                   ImplClause clause,
+                                   Clause clause,
                                    RecImplGoalChain implGoalChain)
     {
-        var eqGoals = new List<EqGoal>(substitutions.LateEqGoals);
-        AddAssocTraitGoals(eqGoals, implGoalChain.Goal);
         var implGoals = this._implGoals.ToList();
         implGoals.Remove(implGoalChain);
+        
         var normGoals = this._normGoals.ToList();
-        var provenGoals = this._provenImplGoals.ToDictionary(x => x.Key, x => x.Value);
-        // we create normalization goals specifically here so we can chain the proofs so we have a well-defined
-        // recursion chain
-        CreateNormalizationGoals(normGoals, eqGoals, implGoalChain.Chain, implGoalChain.RecursionDepth);
-
+        var provenGoals = this._provenImplGoals.ToDictionary();
+        
         // infinite recursion
-        if (!TryAddProvenImplGoal(implGoalChain, provenGoals, clause, substitutions, varMap))
+        if (!TryAddProvenImplGoal(implGoalChain.Chain, provenGoals, clause, substitutions, varMap))
         {
             return null;
-        }
-
-        // test if the goal has already been solved
-        var existing = this.TryReuseExistingProof(implGoalChain, implGoals, normGoals, eqGoals);
-        if (existing != null)
-        {
-            return existing;
         }
 
         // possibly infinite recursion
@@ -39,6 +28,19 @@ public partial class Solver
         {
             return null;
         }
+        
+        // test if the goal has already been solved
+        if (clause is ImplClause)
+        {
+            var existing = this.TryReuseExistingProof(implGoalChain, implGoals);
+            if (existing != null)
+            {
+                return existing;
+            }
+        }
+        
+        var eqGoals = new List<EqGoal>(substitutions.LateEqGoals);
+        AddAssocTraitGoals(eqGoals, implGoalChain.Goal);
 
         // add new instantiation
         var instantiations = this.AddNewInstantiation(substitutions, varMap, clause, implGoalChain, out var inst);
@@ -48,6 +50,17 @@ public partial class Solver
 
         // Add requirements of the found instance to the solver
         AddRequirementsFromInstantiation(substitutions, varMap, clause, implGoalChain, inst, implGoals);
+        
+        // we create normalization goals specifically here so we can chain the proofs so we have a well-defined
+        // recursion chain
+        CreateNormalizationGoals(normGoals, eqGoals, implGoalChain.Chain, implGoalChain.RecursionDepth);
+        
+        // add the new goal to the solver so we can reuse it
+        var newReuseImplGoals = this._reuseImplGoals.ToDictionary();
+        newReuseImplGoals[(implGoalChain.Goal.Target, implGoalChain.Goal.Trait)] = new ReuseImplGoal(
+            implGoalChain.Goal.Target,
+            implGoalChain.Goal.Trait,
+            implGoalChain.Goal.ResolvesTo);
 
         var newSolver = new Solver(this._iterations)
         {
@@ -57,7 +70,8 @@ public partial class Solver
             _eqGoals = eqGoals,
             _instatiations = instantiations,
             _provenImplGoals =  provenGoals,
-            _normGoals = normGoals
+            _normGoals = normGoals,
+            _reuseImplGoals = newReuseImplGoals
         };
         return newSolver;
     }
@@ -72,24 +86,47 @@ public partial class Solver
         }
     }
 
-    private static void AddRequirementsFromInstantiation(TermMatch substitutions, Dictionary<BoundVar, FreeVar> varMap,
-                                                         ImplClause clause,
-                                                         RecImplGoalChain implGoalChain, Instatiation inst,
+    private static void AddRequirementsFromInstantiation(TermMatch substitutions, 
+                                                         Dictionary<BoundVar, FreeVar> varMap,
+                                                         Clause clause,
+                                                         RecImplGoalChain implGoalChain, 
+                                                         Instatiation inst,
                                                          List<RecImplGoalChain> implGoals)
     {
-        var substConstraints = clause.TyParams.ToDictionary(x => x, x => substitutions.Substitutions[varMap[x]]);
-        for (int i = 0; i < clause.Constraints.Length; i++)
+        if (clause is ImplClause ic)
         {
-            var c = clause.Constraints[i];
-            var n = inst.Constraints[i];
-            implGoals.Add(new RecImplGoalChain(
-                new ImplGoal(
-                    c.Target.Substitute(substConstraints), 
-                    c.Trait.Substitute(substConstraints),
-                    c.AssocConstraints.ToDictionary(x => x.Key, x => x.Value.Substitute(substConstraints)),
-                    n), 
-                new ProofChain(implGoalChain.Chain),
-                implGoalChain.RecursionDepth + 1));
+            var substConstraints = ic.TyParams.ToDictionary(x => x, x => substitutions.Substitutions[varMap[x]]);
+            for (int i = 0; i < ic.Constraints.Length; i++)
+            {
+                var c = ic.Constraints[i];
+                var n = inst.Constraints[i];
+                implGoals.Add(new RecImplGoalChain(
+                    new ImplGoal(
+                        c.Target.Substitute(substConstraints),
+                        c.Trait.Substitute(substConstraints),
+                        c.AssocConstraints.ToDictionary(x => x.Key, x => x.Value.Substitute(substConstraints)),
+                        n),
+                    new ProofChain(implGoalChain.Chain),
+                    implGoalChain.RecursionDepth + 1));
+            }
+        }
+        else if (clause is AssocTyClause atc)
+        {
+            // TODO: REMOVE THIS ONCE WE DON'T NEED TO PROVE ANYTHING WHEN DEALING WITH IRREDUCIBLE ASSOCIATED TYPES
+            // var substConstraints = atc.TyParams.ToDictionary(x => x, x => substitutions.Substitutions[varMap[x]]);
+            // var n = inst.Constraints[0];
+            // implGoals.Add(new RecImplGoalChain(
+            //     new ImplGoal(
+            //         implGoalChain.Goal.Target,
+            //         atc.Constraint.Substitute(substConstraints),
+            //         atc.AssocConstraints.ToDictionary(x => x.Key, x => x.Value.Substitute(substConstraints)),
+            //         n),
+            //     new ProofChain(implGoalChain.Chain),
+            //     implGoalChain.RecursionDepth + 1));
+        }
+        else
+        {
+            throw new InvalidOperationException("invalid clause");       
         }
     }
 
@@ -103,32 +140,45 @@ public partial class Solver
 
     private Dictionary<string, Instatiation> AddNewInstantiation(TermMatch substitutions,
                                                                  Dictionary<BoundVar, FreeVar> varMap,
-                                                                 ImplClause clause,
-                                                                 RecImplGoalChain implGoalChain, out Instatiation inst)
+                                                                 Clause clause,
+                                                                 RecImplGoalChain implGoalChain, 
+                                                                 out Instatiation inst)
     {
         var instantiations = this._instatiations.ToDictionary(
             entry => entry.Key,
             entry => entry.Value);
 
-        inst = new Instatiation(
-            clause.Name,
-            clause.TyParams.Select(p => substitutions.Substitutions[varMap[p]]).ToList(),
-            clause.Constraints.Select(_ => $"$g{++_goalSeed}".ToString()).ToList());
+        if (clause is ImplClause ic)
+        {
+            inst = new Instatiation(
+                ic.Name,
+                ic.TyParams.Select(p => substitutions.Substitutions[varMap[p]]).ToList(),
+                ic.Constraints.Select(_ => $"$g{++_goalSeed}".ToString()).ToList());
 
-        instantiations[implGoalChain.Goal.ResolvesTo] = inst;
+            instantiations[implGoalChain.Goal.ResolvesTo] = inst;
+        }
+        else if (clause is AssocTyClause atc)
+        {
+            inst = new Instatiation(
+                // won't be used
+                atc.AliasName,
+                atc.TyParams.Select(p => substitutions.Substitutions[varMap[p]]).ToList(),
+                [$"$g{++_goalSeed}"]);
+        }
+        else
+        {
+            throw new InvalidOperationException("invalid clause");
+        }
+
         return instantiations;
     }
 
-    private Solver? TryReuseExistingProof(RecImplGoalChain implGoalChain, 
-                                          List<RecImplGoalChain> implGoals,
-                                          List<RecNormGoalChain> normGoals,
-                                          List<EqGoal> eqGoals)
+    private Solver? TryReuseExistingProof(RecImplGoalChain implGoalChain, List<RecImplGoalChain> implGoals)
     {
-        var goalName = this._provenImplGoals.SelectMany(x => x.Value).FirstOrDefault(x =>
-            x.Target == implGoalChain.Goal.Target && x.Trait == implGoalChain.Goal.Trait).ResolvesTo;
-        
-        if (goalName != null)
+        var key = (implGoalChain.Goal.Target, implGoalChain.Goal.Trait);
+        if (this._reuseImplGoals.TryGetValue(key, out var reuse))
         {
+            var goalName = reuse.ResolvesTo;
             var newInstantiations = this._instatiations.ToDictionary(entry => entry.Key, entry => entry.Value);
             newInstantiations[implGoalChain.Goal.ResolvesTo] = newInstantiations[goalName];
         
@@ -138,25 +188,36 @@ public partial class Solver
                 _implGoals = implGoals,
                 _match = this._match,
                 _clauses = this._clauses,
-                _eqGoals = eqGoals,
+                _eqGoals = this._eqGoals.ToList(),
                 _instatiations = newInstantiations,
-                _provenImplGoals = this._provenImplGoals.ToDictionary(x => x.Key, x => x.Value),
-                _normGoals = normGoals
+                _provenImplGoals = this._provenImplGoals.ToDictionary(),
+                _normGoals = this._normGoals.ToList(),
+                _reuseImplGoals = this._reuseImplGoals.ToDictionary()
             };
         }
-
+        
         return null;
     }
 
-    private static bool TryAddProvenImplGoal(RecImplGoalChain implGoalChain, 
-                                             Dictionary<ProofChain, List<ProvenImplGoal>> provenGoals,
-                                             ImplClause clause,
+    private static bool TryAddProvenImplGoal(
+                                             ProofChain proofChain,
+                                             Dictionary<ProofChain, List<ProvenGoal>> provenGoals,
+                                             Clause clause,
                                              TermMatch substitutions,
                                              Dictionary<BoundVar, FreeVar> varMap)
     {
-        ProofChain? chain = implGoalChain.Chain;
-        var args = clause.TyParams.Select((p, i) => (I: i, S: substitutions.Substitutions[varMap[p]]))
-                         .ToDictionary(x => clause.TyParams[x.I], x => x.S);
+        ProofChain? chain = proofChain;
+        Dictionary<BoundVar, Term> args;
+        if (clause is ImplClause ic)
+            args = ic.TyParams.Select((p, i) => (I: i, S: substitutions.Substitutions[varMap[p]]))
+                     .ToDictionary(x => ic.TyParams[x.I], x => x.S);
+        else if (clause is AssocTyClause atc)
+            args = atc.TyParams.Select((p, i) => (I: i, S: substitutions.Substitutions[varMap[p]]))
+                     .ToDictionary(x => atc.TyParams[x.I], x => x.S);
+        else
+        {
+            throw new InvalidOperationException("invalid clause");
+        }
         
         while (chain != null)
         {
@@ -164,7 +225,7 @@ public partial class Solver
             {
                 foreach (var pg in list)
                 {
-                    if (clause == pg.Impl && IsInfiniteRecursion(pg.Args, args))
+                    if (clause == pg.Clause && IsInfiniteRecursion(pg.Args, args))
                     {
                         return false;
                     }
@@ -173,19 +234,15 @@ public partial class Solver
             chain = chain.Parent;
         }
 
-        if (!provenGoals.ContainsKey(implGoalChain.Chain))
+        if (!provenGoals.ContainsKey(proofChain))
         {
-            provenGoals[implGoalChain.Chain] = [];
+            provenGoals[proofChain] = [];
         }
         
-        provenGoals[implGoalChain.Chain].Add(
-            new ProvenImplGoal(
+        provenGoals[proofChain].Add(
+            new ProvenGoal(
                 clause,
-                implGoalChain.Goal.Target,
-                implGoalChain.Goal.Trait, 
-                implGoalChain.Chain,
-                args,
-                implGoalChain.Goal.ResolvesTo));
+                args));
         return true;
     }
 
@@ -196,27 +253,67 @@ public partial class Solver
 
     private List<Solver> GetCandidates(RecImplGoalChain implGoal)
     {
-        List<Solver> candidates = new();
-        foreach (var implClause in this._clauses.OfType<ImplClause>())
+        if (implGoal.Goal.Target is IrAlias irAlias)
         {
-            var newVars = implClause.TyParams.Select(x => (BoundVar: x, FreeVar: FreeVar.New())).ToDictionary(x => x.BoundVar, x => x.FreeVar);
-            var trait = implClause.Trait.Replace<BoundVar>(b => newVars[b]);
-            var target = implClause.Target.Replace<BoundVar>(b => newVars[b]);
-            
-            var subs = Term.TryMatch(new App("S", [target, trait]), new App("S", [implGoal.Goal.Target, implGoal.Goal.Trait]));
-            if (subs == null)
+            List<Solver> candidates = new();
+            foreach (var clause in this._clauses.OfType<AssocTyClause>())
             {
-                continue;
+                if (clause.AliasName != irAlias.Name)
+                {
+                    continue;
+                }
+                
+                var newVars = clause.TyParams.Select(x => (BoundVar: x, FreeVar: FreeVar.New()))
+                                        .ToDictionary(x => x.BoundVar, x => x.FreeVar);
+                var trait = clause.Trait.Replace<BoundVar>(b => newVars[b]);
+                var constraint = clause.Constraint.Replace<BoundVar>(b => newVars[b]);
+                
+                var subs = Term.TryMatch(
+                    new App("S", [trait, constraint]),
+                    new App("S", [irAlias.Trait, implGoal.Goal.Trait]));
+                
+                if (subs == null)
+                {
+                    continue;
+                }
+
+                if (newVars.Keys.All(k => subs.Substitutions.ContainsKey(newVars[k])))
+                {
+                    var candidate = this.BuildCandidate(subs, newVars, clause, implGoal);
+                    if (candidate != null)
+                        candidates.Add(candidate);
+                }
             }
 
-            if (newVars.Keys.All(k => subs.Substitutions.ContainsKey(newVars[k])))
-            {
-                var candidate = this.BuildCandidate(subs, newVars, implClause, implGoal);
-                if (candidate != null)
-                    candidates.Add(candidate);
-            }
+            return candidates;
         }
+        else
+        {
+            List<Solver> candidates = new();
+            foreach (var implClause in this._clauses.OfType<ImplClause>())
+            {
+                var newVars = implClause.TyParams.Select(x => (BoundVar: x, FreeVar: FreeVar.New()))
+                                        .ToDictionary(x => x.BoundVar, x => x.FreeVar);
+                var trait = implClause.Trait.Replace<BoundVar>(b => newVars[b]);
+                var target = implClause.Target.Replace<BoundVar>(b => newVars[b]);
 
-        return candidates;
+                var subs = Term.TryMatch(
+                    new App("S", [target, trait]),
+                    new App("S", [implGoal.Goal.Target, implGoal.Goal.Trait]));
+                if (subs == null)
+                {
+                    continue;
+                }
+
+                if (newVars.Keys.All(k => subs.Substitutions.ContainsKey(newVars[k])))
+                {
+                    var candidate = this.BuildCandidate(subs, newVars, implClause, implGoal);
+                    if (candidate != null)
+                        candidates.Add(candidate);
+                }
+            }
+
+            return candidates;
+        }
     }
 }
