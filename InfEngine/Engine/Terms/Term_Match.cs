@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using InfEngine.Engine.Goals;
 
 namespace InfEngine.Engine.Terms;
@@ -150,7 +151,12 @@ public partial record Term
             }
         }
 
-
+        for (int i = 0; i < lateGoals.Count; i++)
+        {
+            // do the substitution for late goals
+            // tought that may be arguably not necessary, but it's safer
+            lateGoals[i] = lateGoals[i].Substitute(new TermMatch(result, ImmutableArray<EqGoal>.Empty));
+        }
 
         return new TermMatch(result, lateGoals);
     }

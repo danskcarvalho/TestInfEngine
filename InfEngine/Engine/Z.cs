@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 using InfEngine.Engine.Clauses;
 using InfEngine.Engine.Goals;
 using InfEngine.Engine.Terms;
@@ -18,8 +19,17 @@ public static class Z
     public static Func<Term, Term, Term, Term, Term, Term, App> A6(string name) => (a, b, c, d, e, f) => new App(name, [a, b, c, d, e, f]);
     
     public static EqGoal EqG(Term left, Term right) => new EqGoal(left, right);
-    public static ImplGoal ImplG(Term target, Term trait, string resolvesTo) => new ImplGoal(target, trait, resolvesTo);
-    public static ImplConstraint ImplC(Term target, Term trait) => new ImplConstraint(target, trait);
+    public static ImplGoal ImplG(Term target, Term trait, string resolvesTo) => new ImplGoal(target, trait, ReadOnlyDictionary<string, Term>.Empty, resolvesTo);
+    public static ImplGoal ImplG(Term target, 
+                                 Term trait, 
+                                 IReadOnlyDictionary<string, Term> assocConstraints,
+                                 string resolvesTo) => 
+        new ImplGoal(
+            target, 
+            trait, 
+            assocConstraints.ToDictionary(x => x.Key, x => x.Value), 
+            resolvesTo);
+    public static ImplConstraint ImplC(Term target, Term trait) => new ImplConstraint(target, trait, ReadOnlyDictionary<string, Term>.Empty);
     public static ImplClause Impl0(string name, Term target, Term trait, params ReadOnlySpan<ImplConstraint> constraints) =>
         new(name, [], target, trait, [..constraints]);
 

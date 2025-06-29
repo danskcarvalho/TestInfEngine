@@ -1,0 +1,17 @@
+using System.Collections.Immutable;
+using InfEngine.Engine.Terms;
+
+namespace InfEngine.Engine.Clauses;
+
+// this clause assets that an associated type implements a certain trait
+// it's useful when trying to prove that a non-reducible alias implements a trait
+// irreducible aliases happens when you have T::AssocType and T is a bound var (a type parameter)
+// this clause is generated for every trait
+// ex.: type Item: Iterator<Item = T>
+public record AssocTyClause(BoundVar SelfParam,
+                            ImmutableArray<BoundVar> TyParams,
+                            Term Trait,
+                            string AliasName,
+                            Term Constraint,
+                            // Ex.: Iterator<Item = str>, Item = is an assoc type constraint
+                            IReadOnlyDictionary<string, Term> AssocConstraints) : Clause;

@@ -6,14 +6,15 @@ namespace InfEngine.Engine;
 
 public partial class Solver
 {
-    public const long MaxRecursion = 100;
+    public const long MaxRecursion = 200;
     public const long MaxIterations = 50000;
     
     private List<EqGoal> _eqGoals = new();
+    private List<RecNormGoalChain> _normGoals = new();
     private List<RecImplGoalChain> _implGoals = new();
     private Dictionary<ProofChain, List<ProvenImplGoal>> _provenImplGoals = new();
     private List<Clause> _clauses = new();
-    private TermMatch? _match;
+    private TermMatch _match = TermMatch.Empty;
     private Dictionary<string, Instatiation> _instatiations = new();
     private static long _goalSeed;
     private readonly IterationCount _iterations;
@@ -26,13 +27,15 @@ public partial class Solver
             return null;
         }
 
-        return new SolverResult(solver._instatiations, solver._match ?? new TermMatch(new Dictionary<FreeVar, Term>(), []));
+        return new SolverResult(solver._instatiations, solver._match);
     }
 
+    // The correctness of this depends on clauses not overlapping.
     public Solver(List<Goal> goals, List<Clause> clauses)
     {
         this._eqGoals.AddRange(goals.OfType<EqGoal>());
         this._implGoals.AddRange(goals.OfType<ImplGoal>().Select(x => new RecImplGoalChain(x, new ProofChain(), 0)));
+        this._normGoals.AddRange(goals.OfType<NormalizeGoal>().Select(x => new RecNormGoalChain(x, new ProofChain(), 0)));
         this._clauses.AddRange(clauses);
         this._iterations = new IterationCount();
     }
@@ -78,32 +81,6 @@ public partial class Solver
         return null;
     }
 
-    private List<Solver> GetCandidates(RecImplGoalChain implGoal)
-    {
-        List<Solver> candidates = new();
-        foreach (var implClause in this._clauses.OfType<ImplClause>())
-        {
-            var newVars = implClause.TyParams.Select(x => (BoundVar: x, FreeVar: FreeVar.New())).ToDictionary(x => x.BoundVar, x => x.FreeVar);
-            var trait = implClause.Trait.Replace<BoundVar>(b => newVars[b]);
-            var target = implClause.Target.Replace<BoundVar>(b => newVars[b]);
-            
-            var subs = Term.TryMatch(new App("S", [target, trait]), new App("S", [implGoal.Goal.Target, implGoal.Goal.Trait]));
-            if (subs == null)
-            {
-                continue;
-            }
-
-            if (newVars.Keys.All(k => subs.Substitutions.ContainsKey(newVars[k])))
-            {
-                var candidate = BuildCandidate(subs, newVars, implClause, implGoal);
-                if (candidate != null)
-                    candidates.Add(candidate);
-            }
-        }
-
-        return candidates;
-    }
-
     private RecImplGoalChain? ElectBestImplGoal()
     {
         if (this._implGoals.Count == 0)
@@ -138,61 +115,55 @@ public partial class Solver
         if(this._eqGoals.Count == 0)
             return true;
 
-        while(this._eqGoals.Count != 0)
+        if (!this.ProcessEquationGoals())
         {
-            var eqGoal = _eqGoals[^1];
-            _eqGoals.RemoveAt(_eqGoals.Count - 1);
-            
-            var match = Term.TryMatch(eqGoal.Left, eqGoal.Right);
-            if (match == null)
-            {
-                return false;
-            }
-            this._match = this._match == null ? match : this._match.Merge(match);
-
-            for (int i = 0; i < _eqGoals.Count; i++)
-            {
-                _eqGoals[i] = _eqGoals[i].Substitute(match);
-            }
+            return false;
         }
 
-        if (this._match != null)
-        {
-            for (int i = 0; i < this._implGoals.Count; i++)
-            {
-                this._implGoals[i] = new RecImplGoalChain(
-                    this._implGoals[i].Goal.Substitute(this._match), 
-                    this._implGoals[i].Chain, 
-                    this._implGoals[i].RecursionDepth);
-            }
-
-            this._provenImplGoals = this._provenImplGoals.ToDictionary(
-                x => x.Key, 
-                x => x.Value.Select(y => y.Substitute(this._match)).ToList());
-            
-            foreach (var instName in this._instatiations.Keys.ToList())
-            {
-                this._instatiations[instName] = this._instatiations[instName].Substitute(this._match);
-            }
-        }
+        this.ApplySubstitutionsToGoals();
 
         return true;
     }
 
-    public record struct RecImplGoalChain(ImplGoal Goal, ProofChain Chain, long RecursionDepth);
-
-    public class IterationCount
+    private static void CreateNormalizationGoals(
+        List<RecNormGoalChain> goalChains,
+        List<EqGoal> eqGoals, ProofChain? proofChain, long recursionDepth)
     {
-        private int _iterations;
+        var toBeNormalized = eqGoals.Select((e, i) => (e, i)).Where(e => e.e.Left.Any<Alias>() || e.e.Right.Any<Alias>()).Select(x => x.i).ToList();
 
-        public void Increment()
+        Dictionary<Alias, FreeVar> subs = new();
+        foreach (var index in toBeNormalized)
         {
-            this._iterations++;
+            var n = eqGoals[index];
+            var left = n.Left.Replace<Alias>(a =>
+            {
+                if (!subs.TryGetValue(a, out var existing))
+                {
+                    var newVar = FreeVar.New();
+                    subs[a] = newVar;
+                    return newVar;
+                }
+
+                return existing;
+            });
+            var right = n.Right.Replace<Alias>(a =>
+            {
+                if (!subs.TryGetValue(a, out var existing))
+                {
+                    var newVar = FreeVar.New();
+                    subs[a] = newVar;
+                    return newVar;
+                }
+
+                return existing;
+            });
+            eqGoals[index] = new EqGoal(left, right);
         }
 
-        public bool Overflown()
+        foreach (var alias in subs.Keys)
         {
-            return this._iterations > MaxIterations;
+            var normGoal = new NormalizeGoal(alias, subs[alias]);
+            goalChains.Add(new RecNormGoalChain(normGoal, new ProofChain(proofChain), recursionDepth + 1));
         }
     }
 }

@@ -6,6 +6,10 @@ public record TermMatch(
     IReadOnlyDictionary<FreeVar, Term> Substitutions,
     IReadOnlyList<EqGoal> LateGoals)
 {
+    public static readonly TermMatch Empty = new(new Dictionary<FreeVar, Term>(), new List<EqGoal>());
+
+    public bool IsEmpty => Substitutions.Count == 0;
+
     /// <summary>
     /// Gives, for each variable, a set of all the other variables it's equal to.
     /// </summary>
@@ -142,4 +146,6 @@ public record TermMatch(
 
         return new TermMatch(result, this.LateGoals.Concat(match.LateGoals).ToList());
     }
+    
+    public TermMatch PurgeGoals() => this with { LateGoals = [] };
 }

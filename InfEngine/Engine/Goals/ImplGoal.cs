@@ -2,9 +2,17 @@ using InfEngine.Engine.Terms;
 
 namespace InfEngine.Engine.Goals;
 
-public record ImplGoal(Term Target, Term Trait, string ResolvesTo) : Goal
+public record ImplGoal(
+    Term Target, 
+    Term Trait, 
+    IReadOnlyDictionary<string, Term> AssocConstraints,
+    string ResolvesTo) : Goal
 {
-    public override ImplGoal Substitute(TermMatch match) => new ImplGoal(Target.Substitute(match), Trait.Substitute(match), ResolvesTo);
+    public override ImplGoal Substitute(TermMatch match) => new ImplGoal(
+        Target.Substitute(match), 
+        Trait.Substitute(match), 
+        AssocConstraints.ToDictionary(x => x.Key, x => x.Value.Substitute(match)),
+        ResolvesTo);
 
     public bool IsNonGeneric()
     {
@@ -13,6 +21,12 @@ public record ImplGoal(Term Target, Term Trait, string ResolvesTo) : Goal
 
         if (Trait.Any<FreeVar>())
             return false;
+
+        foreach (var term in AssocConstraints.Values)
+        {
+            if (term.Any<FreeVar>())
+                return false;
+        }
         
         return true;
     }
@@ -21,6 +35,11 @@ public record ImplGoal(Term Target, Term Trait, string ResolvesTo) : Goal
     {
         var vars = Target.Descendants<FreeVar>().ToHashSet();
         vars.UnionWith(Trait.Descendants<FreeVar>());
+        foreach (var term in AssocConstraints.Values)
+        {
+            if (term.Any<FreeVar>())
+                vars.UnionWith(term.Descendants<FreeVar>());
+        }
         return vars.Count;
     }
 

@@ -3,7 +3,7 @@ using InfEngine.Engine.Terms;
 
 namespace InfEngine.Engine.Clauses;
 
-public record AliasClause(
+public record AliasImplClause(
     ImmutableArray<BoundVar> TyParams,
     Term Target,
     Term Trait,
