@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using InfEngine.Engine.Terms;
 
 namespace InfEngine.Engine.Clauses;
@@ -11,10 +12,17 @@ namespace InfEngine.Engine.Clauses;
 // trait Iterable:
 //      type It: Iterator<Item=int>
 // Then Trait = Iterable, AliasName = It, Constraint = Iterator, AssocConstraints = {Item: int}
-public record AssocTyClause(BoundVar SelfParam,
-                            ImmutableArray<BoundVar> TyParams,
-                            Term Trait,
-                            string AliasName,
-                            Term Constraint,
-                            // Ex.: Iterator<Item = str>, Item = is an assoc type constraint
-                            IReadOnlyDictionary<string, Term> AssocConstraints) : Clause;
+public record AssocTyClause(
+    ImmutableArray<BoundVar> TyParams,
+    Term Trait,
+    string AliasName,
+    Term Constraint,
+    // Ex.: Iterator<Item = str>, Item = is an assoc type constraint
+    IReadOnlyDictionary<string, Term> AssocConstraints) : Clause
+{
+    public override string ToString() => $"{Trait}::{AliasName}: {Constraint.ToString(AssocConstraints)}";
+
+    public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
+
+    public virtual bool Equals(AssocTyClause? other) => ReferenceEquals(this, other);
+}

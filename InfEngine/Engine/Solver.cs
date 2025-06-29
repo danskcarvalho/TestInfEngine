@@ -198,4 +198,54 @@ public partial class Solver
             goalChains.Add(new RecNormGoalChain(normGoal, new ProofChain(proofChain), recursionDepth + 1));
         }
     }
+
+    private static bool TryAddProvenGoal(
+        ProofChain proofChain,
+        Dictionary<ProofChain, List<ProvenGoal>> provenGoals,
+        Clause clause,
+        TermMatch substitutions,
+        Dictionary<BoundVar, FreeVar> varMap)
+    {
+        ProofChain? chain = proofChain;
+        Dictionary<BoundVar, Term> args;
+        if (clause is ImplClause ic)
+            args = ic.TyParams.Select((p, i) => (I: i, S: substitutions.Substitutions[varMap[p]]))
+                     .ToDictionary(x => ic.TyParams[x.I], x => x.S);
+        else if (clause is AssocTyClause atc)
+            args = atc.TyParams.Select((p, i) => (I: i, S: substitutions.Substitutions[varMap[p]]))
+                      .ToDictionary(x => atc.TyParams[x.I], x => x.S);
+        else if (clause is AliasImplClause aic)
+            args = aic.TyParams.Select((p, i) => (I: i, S: substitutions.Substitutions[varMap[p]]))
+                      .ToDictionary(x => aic.TyParams[x.I], x => x.S);
+        else
+        {
+            throw new InvalidOperationException("invalid clause");
+        }
+        
+        while (chain != null)
+        {
+            if (provenGoals.TryGetValue(chain, out var list))
+            {
+                foreach (var pg in list)
+                {
+                    if (clause == pg.Clause && IsInfiniteRecursion(pg.Args, args))
+                    {
+                        return false;
+                    }
+                }
+            }
+            chain = chain.Parent;
+        }
+
+        if (!provenGoals.ContainsKey(proofChain))
+        {
+            provenGoals[proofChain] = [];
+        }
+        
+        provenGoals[proofChain].Add(
+            new ProvenGoal(
+                clause,
+                args));
+        return true;
+    }
 }

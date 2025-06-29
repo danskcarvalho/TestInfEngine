@@ -21,7 +21,7 @@ public partial class Solver
         var provenGoals = this._provenImplGoals.ToDictionary();
         
         // infinite recursion
-        if (!TryAddProvenImplGoal(normGoalChain.Chain, provenGoals, clause, substitutions, varMap))
+        if (!TryAddProvenGoal(normGoalChain.Chain, provenGoals, clause, substitutions, varMap))
         {
             return null;
         }

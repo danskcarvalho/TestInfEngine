@@ -7,6 +7,13 @@ public abstract partial record Term
     public abstract Term Replace<T>(Func<T, Term?> replacement) where T : Term;
     public abstract IEnumerable<T> Descendants<T>() where T : Term;
 
+    public string ToString(IReadOnlyDictionary<string, Term> assocConstraints)
+    {
+        if (this is App app)
+            return app.ToString(assocConstraints);
+        return this.ToString();
+    }
+
     public IEnumerable<T> DescendantsAndSelf<T>() where T : Term
     {
         if (this is T)

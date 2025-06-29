@@ -17,6 +17,19 @@ public record App(string Head, ImmutableArray<Term> Args) : Term
     public override string ToString() => Args.Length != 0 ? 
         $"{Head}<{string.Join(", ", Args)}>" :
         Head;
+    public new string ToString(IReadOnlyDictionary<string, Term> assocConstraints)
+    {
+        if (Args.Length != 0)
+        {
+            if (assocConstraints.Count == 0)
+                return $"{Head}<{string.Join(", ", Args)}>";
+            return $"{this.Head}<{string.Join(", ", this.Args)}, {string.Join(", ", assocConstraints.Select(ac => $"{ac.Key}={ac.Value}").ToArray())}>";
+        }
+
+        if (assocConstraints.Count == 0)
+            return this.Head;
+        return $"{this.Head}<{string.Join(", ", assocConstraints.Select(ac => $"{ac.Key}={ac.Value}").ToArray())}>";
+    }
 
     public override bool Any<T>(Func<T, bool> pred)
     {

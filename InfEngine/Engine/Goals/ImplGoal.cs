@@ -43,5 +43,5 @@ public record ImplGoal(
         return vars.Count;
     }
 
-    public override string ToString() => $"{Target}: {Trait} => {ResolvesTo}";
+    public override string ToString() => $"{Target}: {Trait.ToString(AssocConstraints)} => {ResolvesTo}";
 }
