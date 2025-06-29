@@ -109,24 +109,13 @@ public partial class Solver
                     new ProofChain(implGoalChain.Chain),
                     implGoalChain.RecursionDepth + 1));
             }
+            
+            return;
         }
-        else if (clause is AssocTyClause atc)
+
+        if (clause is not AssocTyClause)
         {
-            // TODO: REMOVE THIS ONCE WE DON'T NEED TO PROVE ANYTHING WHEN DEALING WITH IRREDUCIBLE ASSOCIATED TYPES
-            // var substConstraints = atc.TyParams.ToDictionary(x => x, x => substitutions.Substitutions[varMap[x]]);
-            // var n = inst.Constraints[0];
-            // implGoals.Add(new RecImplGoalChain(
-            //     new ImplGoal(
-            //         implGoalChain.Goal.Target,
-            //         atc.Constraint.Substitute(substConstraints),
-            //         atc.AssocConstraints.ToDictionary(x => x.Key, x => x.Value.Substitute(substConstraints)),
-            //         n),
-            //     new ProofChain(implGoalChain.Chain),
-            //     implGoalChain.RecursionDepth + 1));
-        }
-        else
-        {
-            throw new InvalidOperationException("invalid clause");       
+            throw new InvalidOperationException("invalid clause");
         }
     }
 
