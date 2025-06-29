@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using InfEngine.Engine.Terms;
 
 namespace InfEngine.Engine.Clauses;
@@ -11,4 +12,8 @@ public record ImplClause(
     ImmutableArray<ImplConstraint> Constraints) : Clause
 {
     public override string ToString() => $"impl {Name}<{string.Join(", ", TyParams)}> {Target}: {Trait} where {string.Join(", ", Constraints)}";
+
+    public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
+
+    public virtual bool Equals(ImplClause? other) => ReferenceEquals(this, other);
 }
