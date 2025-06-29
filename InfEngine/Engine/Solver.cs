@@ -60,38 +60,58 @@ public partial class Solver
             return null;
         }
 
-        return this.HandleImplGoals();
+        return this.HandleImplAndNormalGoals();
     }
 
-    private Solver? HandleImplGoals()
+    private Solver? HandleImplAndNormalGoals()
     {
-        var implGoal = this.ElectBestImplGoal();
-        if (implGoal == null)
+        var bestGoal = this.ElectBestGoal();
+        if (bestGoal.Impl == null && bestGoal.Norm == null)
         {
             return this;
         }
-        
-        var candidates = this.GetImplCandidates(implGoal.Value);
 
-        foreach (var candidate in candidates)
+        if (bestGoal.Impl != null)
         {
-            var solver = candidate.InternalRun();
-            if (solver != null)
-                return solver;
+            var candidates = this.GetImplCandidates(bestGoal.Impl!.Value);
+
+            foreach (var candidate in candidates)
+            {
+                var solver = candidate.InternalRun();
+                if (solver != null)
+                    return solver;
+            }
+        }
+        else
+        {
+            var candidates = this.GetNormCandidates(bestGoal.Norm!.Value);
+
+            foreach (var candidate in candidates)
+            {
+                var solver = candidate.InternalRun();
+                if (solver != null)
+                    return solver;
+            }
         }
 
         return null;
     }
 
-    private RecImplGoalChain? ElectBestImplGoal()
+    private (RecImplGoalChain? Impl, RecNormGoalChain? Norm) ElectBestGoal()
     {
-        if (this._implGoals.Count == 0)
-            return null;
+        if (this._implGoals.Count == 0 && this._normGoals.Count == 0)
+            return (null, null);
+        
+        var nonGenNormGoal = this._normGoals.FirstOrDefault(g => g.Goal.IsNonGeneric());
+        if (nonGenNormGoal.Goal != null)
+        {
+            return (null, nonGenNormGoal);
+        }
         
         var nonGenImplGoals = this._implGoals.FirstOrDefault(g => g.Goal.IsNonGeneric());
         if (nonGenImplGoals.Goal != null)
         {
-            return nonGenImplGoals;
+            return (nonGenImplGoals, null);
         }
 
         var nonGenericTarget = this._implGoals.Where(x => !x.Goal.Target.Any<FreeVar>())
@@ -101,7 +121,17 @@ public partial class Solver
 
         if (nonGenericTarget.ImplGoal != null)
         {
-            return nonGenericTarget.ImplGoal;
+            return (nonGenericTarget.ImplGoal, null);
+        }
+        
+        var normGoalWithLeastVars = this._normGoals
+                                        .Select(x => (NormGoal: (RecNormGoalChain?)x, CountFreeVars: x.Goal.CountFreeVars(), x.RecursionDepth))
+                                        .OrderBy(x => x.CountFreeVars)
+                                        .FirstOrDefault();
+        
+        if (normGoalWithLeastVars.NormGoal != null)
+        {
+            return (null, normGoalWithLeastVars.NormGoal);
         }
 
         var implGoalWithLeastVars = this._implGoals
@@ -109,26 +139,7 @@ public partial class Solver
                                     .OrderBy(x => x.CountFreeVars)
                                     .FirstOrDefault();
 
-        return implGoalWithLeastVars.ImplGoal;
-    }
-    
-    private RecNormGoalChain? ElectBestNormGoal()
-    {
-        if (this._normGoals.Count == 0)
-            return null;
-        
-        var nonGenNormGoal = this._normGoals.FirstOrDefault(g => g.Goal.IsNonGeneric());
-        if (nonGenNormGoal.Goal != null)
-        {
-            return nonGenNormGoal;
-        }
-
-        var normGoalWithLeastVars = this._normGoals
-                                        .Select(x => (NormGoal: (RecNormGoalChain?)x, CountFreeVars: x.Goal.CountFreeVars(), x.RecursionDepth))
-                                        .OrderBy(x => x.CountFreeVars)
-                                        .FirstOrDefault();
-
-        return normGoalWithLeastVars.NormGoal;
+        return (implGoalWithLeastVars.ImplGoal, null);
     }
 
     private bool HandleEqGoals()
