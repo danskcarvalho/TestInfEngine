@@ -4,5 +4,5 @@ namespace InfEngine.Engine;
 
 public partial class Solver
 {
-    public record struct RecNormGoalChain(NormalizeGoal Goal, ProofChain Chain, long RecursionDepth);
+    public record struct RecNormGoalChain(NormGoal Goal, ProofChain Chain, long RecursionDepth);
 }

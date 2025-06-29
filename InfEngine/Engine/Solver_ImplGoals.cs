@@ -6,7 +6,7 @@ namespace InfEngine.Engine;
 
 public partial class Solver
 {
-    private Solver? BuildCandidate(TermMatch substitutions,
+    private Solver? BuildImplCandidate(TermMatch substitutions,
                                    Dictionary<BoundVar, FreeVar> varMap,
                                    Clause clause,
                                    RecImplGoalChain implGoalChain)
@@ -71,7 +71,8 @@ public partial class Solver
             _instatiations = instantiations,
             _provenImplGoals =  provenGoals,
             _normGoals = normGoals,
-            _reuseImplGoals = newReuseImplGoals
+            _reuseImplGoals = newReuseImplGoals,
+            _reuseNormGoals = this._reuseNormGoals.ToDictionary()
         };
         return newSolver;
     }
@@ -142,7 +143,7 @@ public partial class Solver
             inst = new Instatiation(
                 ic.Name,
                 ic.TyParams.Select(p => substitutions.Substitutions[varMap[p]]).ToList(),
-                ic.Constraints.Select(_ => $"$g{++_goalSeed}".ToString()).ToList());
+                ic.Constraints.Select(_ => $"$g{++_goalSeed}").ToList());
 
             instantiations[implGoalChain.Goal.ResolvesTo] = inst;
         }
@@ -181,7 +182,8 @@ public partial class Solver
                 _instatiations = newInstantiations,
                 _provenImplGoals = this._provenImplGoals.ToDictionary(),
                 _normGoals = this._normGoals.ToList(),
-                _reuseImplGoals = this._reuseImplGoals.ToDictionary()
+                _reuseImplGoals = this._reuseImplGoals.ToDictionary(),
+                _reuseNormGoals = this._reuseNormGoals.ToDictionary()
             };
         }
         
@@ -203,6 +205,9 @@ public partial class Solver
         else if (clause is AssocTyClause atc)
             args = atc.TyParams.Select((p, i) => (I: i, S: substitutions.Substitutions[varMap[p]]))
                      .ToDictionary(x => atc.TyParams[x.I], x => x.S);
+        else if (clause is AliasImplClause aic)
+            args = aic.TyParams.Select((p, i) => (I: i, S: substitutions.Substitutions[varMap[p]]))
+                      .ToDictionary(x => aic.TyParams[x.I], x => x.S);
         else
         {
             throw new InvalidOperationException("invalid clause");
@@ -240,7 +245,7 @@ public partial class Solver
         return newArgs.All(x => x.Value.Contains(onStackArgs[x.Key]));
     }
 
-    private List<Solver> GetCandidates(RecImplGoalChain implGoal)
+    private List<Solver> GetImplCandidates(RecImplGoalChain implGoal)
     {
         if (implGoal.Goal.Target is IrAlias irAlias)
         {
@@ -252,8 +257,9 @@ public partial class Solver
                     continue;
                 }
                 
-                var newVars = clause.TyParams.Select(x => (BoundVar: x, FreeVar: FreeVar.New()))
-                                        .ToDictionary(x => x.BoundVar, x => x.FreeVar);
+                var newVars = clause.TyParams
+                                    .Select(x => (BoundVar: x, FreeVar: FreeVar.New()))
+                                    .ToDictionary(x => x.BoundVar, x => x.FreeVar);
                 var trait = clause.Trait.Replace<BoundVar>(b => newVars[b]);
                 var constraint = clause.Constraint.Replace<BoundVar>(b => newVars[b]);
                 
@@ -268,7 +274,7 @@ public partial class Solver
 
                 if (newVars.Keys.All(k => subs.Substitutions.ContainsKey(newVars[k])))
                 {
-                    var candidate = this.BuildCandidate(subs, newVars, clause, implGoal);
+                    var candidate = this.BuildImplCandidate(subs, newVars, clause, implGoal);
                     if (candidate != null)
                         candidates.Add(candidate);
                 }
@@ -296,7 +302,7 @@ public partial class Solver
 
                 if (newVars.Keys.All(k => subs.Substitutions.ContainsKey(newVars[k])))
                 {
-                    var candidate = this.BuildCandidate(subs, newVars, implClause, implGoal);
+                    var candidate = this.BuildImplCandidate(subs, newVars, implClause, implGoal);
                     if (candidate != null)
                         candidates.Add(candidate);
                 }

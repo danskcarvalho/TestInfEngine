@@ -7,7 +7,10 @@ namespace InfEngine.Engine.Clauses;
 // it's useful when trying to prove that a non-reducible alias implements a trait
 // irreducible aliases happens when you have T::AssocType and T is a bound var (a type parameter)
 // this clause is generated for every trait declaration
-// ex.: type Item: Iterator<Item = T>
+// ex.:
+// trait Iterable:
+//      type It: Iterator<Item=int>
+// Then Trait = Iterable, AliasName = It, Constraint = Iterator, AssocConstraints = {Item: int}
 public record AssocTyClause(BoundVar SelfParam,
                             ImmutableArray<BoundVar> TyParams,
                             Term Trait,

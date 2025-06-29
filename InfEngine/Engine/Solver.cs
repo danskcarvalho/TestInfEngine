@@ -14,6 +14,7 @@ public partial class Solver
     private List<RecImplGoalChain> _implGoals = new();
     private Dictionary<ProofChain, List<ProvenGoal>> _provenImplGoals = new();
     private Dictionary<(Term Target, Term Trait), ReuseImplGoal> _reuseImplGoals = new();
+    private Dictionary<Term, Term> _reuseNormGoals = new();
     private List<Clause> _clauses = new();
     private TermMatch _match = TermMatch.Empty;
     private Dictionary<string, Instatiation> _instatiations = new();
@@ -36,7 +37,7 @@ public partial class Solver
     {
         this._eqGoals.AddRange(goals.OfType<EqGoal>());
         this._implGoals.AddRange(goals.OfType<ImplGoal>().Select(x => new RecImplGoalChain(x, new ProofChain(), 0)));
-        this._normGoals.AddRange(goals.OfType<NormalizeGoal>().Select(x => new RecNormGoalChain(x, new ProofChain(), 0)));
+        this._normGoals.AddRange(goals.OfType<NormGoal>().Select(x => new RecNormGoalChain(x, new ProofChain(), 0)));
         this._clauses.AddRange(clauses);
         this._iterations = new IterationCount();
     }
@@ -70,7 +71,7 @@ public partial class Solver
             return this;
         }
         
-        var candidates = GetCandidates(implGoal.Value);
+        var candidates = this.GetImplCandidates(implGoal.Value);
 
         foreach (var candidate in candidates)
         {
@@ -109,6 +110,25 @@ public partial class Solver
                                     .FirstOrDefault();
 
         return implGoalWithLeastVars.ImplGoal;
+    }
+    
+    private RecNormGoalChain? ElectBestNormGoal()
+    {
+        if (this._normGoals.Count == 0)
+            return null;
+        
+        var nonGenNormGoal = this._normGoals.FirstOrDefault(g => g.Goal.IsNonGeneric());
+        if (nonGenNormGoal.Goal != null)
+        {
+            return nonGenNormGoal;
+        }
+
+        var normGoalWithLeastVars = this._normGoals
+                                        .Select(x => (NormGoal: (RecNormGoalChain?)x, CountFreeVars: x.Goal.CountFreeVars(), x.RecursionDepth))
+                                        .OrderBy(x => x.CountFreeVars)
+                                        .FirstOrDefault();
+
+        return normGoalWithLeastVars.NormGoal;
     }
 
     private bool HandleEqGoals()
@@ -163,7 +183,7 @@ public partial class Solver
 
         foreach (var alias in subs.Keys)
         {
-            var normGoal = new NormalizeGoal(alias, subs[alias]);
+            var normGoal = new NormGoal(alias, subs[alias]);
             goalChains.Add(new RecNormGoalChain(normGoal, new ProofChain(proofChain), recursionDepth + 1));
         }
     }

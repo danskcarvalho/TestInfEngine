@@ -9,6 +9,7 @@ public record ImplClause(
     ImmutableArray<BoundVar> TyParams,
     Term Target,
     Term Trait,
+    IReadOnlyDictionary<string, Term> AssocConstraints,
     ImmutableArray<ImplConstraint> Constraints) : Clause
 {
     public override string ToString() => $"impl {Name}<{string.Join(", ", TyParams)}> {Target}: {Trait} where {string.Join(", ", Constraints)}";

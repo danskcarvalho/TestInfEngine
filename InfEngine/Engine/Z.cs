@@ -31,27 +31,27 @@ public static class Z
             resolvesTo);
     public static ImplConstraint ImplC(Term target, Term trait) => new ImplConstraint(target, trait, ReadOnlyDictionary<string, Term>.Empty);
     public static ImplClause Impl0(string name, Term target, Term trait, params ReadOnlySpan<ImplConstraint> constraints) =>
-        new(name, [], target, trait, [..constraints]);
+        new(name, [], target, trait, ReadOnlyDictionary<string, Term>.Empty, [..constraints]);
 
     public static ImplClause Impl1(string name, Func<BoundVar, ZImpl> fn)
     {
         var vars = new BoundVar[] { new BoundVar(0) };
         var impl = fn(vars[0]);
-        return new(name, [..vars], impl.Target, impl.Trait, impl.Constraints);
+        return new(name, [..vars], impl.Target, impl.Trait, ReadOnlyDictionary<string, Term>.Empty, impl.Constraints);
     }
     
     public static ImplClause Impl2(string name, Func<BoundVar, BoundVar, ZImpl> fn)
     {
         var vars = new BoundVar[] { new BoundVar(0), new BoundVar(1) };
         var impl = fn(vars[0], vars[1]);
-        return new(name, [..vars], impl.Target, impl.Trait, impl.Constraints);
+        return new(name, [..vars], impl.Target, impl.Trait, ReadOnlyDictionary<string, Term>.Empty, impl.Constraints);
     }
     
     public static ImplClause Impl3(string name, Func<BoundVar, BoundVar, BoundVar, ZImpl> fn)
     {
         var vars = new BoundVar[] { new BoundVar(0), new BoundVar(1), new BoundVar(2) };
         var impl = fn(vars[0], vars[1], vars[2]);
-        return new(name, [..vars], impl.Target, impl.Trait, impl.Constraints);
+        return new(name, [..vars], impl.Target, impl.Trait, ReadOnlyDictionary<string, Term>.Empty, impl.Constraints);
     }
 
     public static ZImpl Impl(Term target,
