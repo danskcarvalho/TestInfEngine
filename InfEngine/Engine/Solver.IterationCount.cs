@@ -15,5 +15,7 @@ public partial class Solver
         {
             return this._iterations > MaxIterations;
         }
+        
+        public int Count => this._iterations;
     }
 }

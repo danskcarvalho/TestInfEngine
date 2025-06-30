@@ -29,6 +29,7 @@ public partial class Solver
         // possibly infinite recursion
         if (normGoalChain.RecursionDepth > MaxRecursion)
         {
+            LogMsg("Max Recursion", "{0} > {1}", normGoalChain.RecursionDepth, MaxRecursion);
             return null;
         }
         
@@ -48,6 +49,7 @@ public partial class Solver
         
         // Normalize
         eqGoals.Add(new EqGoal(normGoalChain.Goal.Var, aliased));
+        LogMsg("Normalize", "{0}", new EqGoal(normGoalChain.Goal.Var, aliased));
         
         // we create normalization goals specifically here so we can chain the proofs so we have a well-defined
         // recursion chain
@@ -78,6 +80,8 @@ public partial class Solver
         {
             var eqGoals = this._eqGoals.ToList();
             eqGoals.Add(new EqGoal(normGoalChain.Goal.Var, reuse));
+            
+            LogMsg("Reused Norm Goal", "{0} => {1}", normGoalChain.Goal.Var, reuse);
         
             // reuse proof
             return new Solver(this._iterations)
@@ -107,29 +111,32 @@ public partial class Solver
         {
             var substConstraints = aic.TyParams.ToDictionary(x => x, x => substitutions.Substitutions[varMap[x]]);
             var constraint = aic.Constraint.Substitute(substConstraints);
+            var goal = new ImplGoal(constraint.Target, constraint.Trait, constraint.AssocConstraints,
+                $"$g{++_goalSeed}");
+            LogMsg("Added requirement", "{0}", goal);
             implGoals.Add(new RecImplGoalChain(
-                new ImplGoal(constraint.Target, constraint.Trait, constraint.AssocConstraints, $"$g{++_goalSeed}"),
+                goal,
                 normGoalChain.Chain,
                 normGoalChain.RecursionDepth + 1));
         }
         else if (clause is ImplClause ic)
         {
             var substConstraints = ic.TyParams.ToDictionary(x => x, x => substitutions.Substitutions[varMap[x]]);
-            var constraint = new ImplGoal(
+            var goal = new ImplGoal(
                 ic.Target.Substitute(substConstraints), 
                 ic.Trait.Substitute(substConstraints), 
                 ReadOnlyDictionary<string, Term>.Empty, 
                 $"$g{++_goalSeed}");
+            LogMsg("Added requirement", "{0}", goal);
             implGoals.Add(new RecImplGoalChain(
-                constraint,
+                goal,
                 normGoalChain.Chain,
                 normGoalChain.RecursionDepth + 1));
         }
     }
     
-    private List<Solver> GetNormCandidates(RecNormGoalChain normGoalChain)
+    private IEnumerable<Solver> GetNormCandidates(RecNormGoalChain normGoalChain)
     {
-        List<Solver> candidates = new();
         foreach (var aliasClause in this._clauses.OfType<AliasImplClause>())
         {
             if (aliasClause.AliasName != normGoalChain.Goal.Alias.Name)
@@ -152,7 +159,7 @@ public partial class Solver
                 var subsAlias = aliasClause.TyParams.ToDictionary(x => x, x => subs.Substitutions[newVars[x]]);
                 var candidate = this.BuildNormCandidate(aliasClause.Aliased.Substitute(subsAlias), subs, newVars, aliasClause, normGoalChain);
                 if (candidate != null)
-                    candidates.Add(candidate);
+                    yield return candidate;
             }
         }
         
@@ -179,7 +186,7 @@ public partial class Solver
                 var subsAlias = implClause.TyParams.ToDictionary(x => x, x => subs.Substitutions[newVars[x]]);
                 var candidate = this.BuildNormCandidate(aliased.Substitute(subsAlias), subs, newVars, implClause, normGoalChain);
                 if (candidate != null)
-                    candidates.Add(candidate);
+                    yield return candidate;
             }
         }
 
@@ -212,7 +219,7 @@ public partial class Solver
                     var subsAlias = assocTyClause.TyParams.ToDictionary(x => x, x => subs.Substitutions[newVars[x]]);
                     var candidate = this.BuildNormCandidate(aliased.Substitute(subsAlias), subs, newVars, assocTyClause, normGoalChain);
                     if (candidate != null)
-                        candidates.Add(candidate);
+                        yield return candidate;
                 }
             }
         }
@@ -236,7 +243,7 @@ public partial class Solver
                     normGoalChain.RecursionDepth + 1
                 ));
             
-            candidates.Add(new Solver(this._iterations)
+            var last = new Solver(this._iterations)
             {
                 _implGoals = implGoals,
                 _match = this._match,
@@ -247,9 +254,8 @@ public partial class Solver
                 _normGoals = this._normGoals.ToList(),
                 _reuseImplGoals = this._reuseImplGoals.ToDictionary(),
                 _reuseNormGoals = this._reuseNormGoals.ToDictionary()
-            });
+            };
+            yield return last;
         }
-        
-        return candidates;
     }
 }

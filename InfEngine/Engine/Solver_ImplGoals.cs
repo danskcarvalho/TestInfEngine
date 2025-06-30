@@ -26,6 +26,7 @@ public partial class Solver
         // possibly infinite recursion
         if (implGoalChain.RecursionDepth > MaxRecursion)
         {
+            LogMsg("Max Recursion", "{0} > {1}", implGoalChain.RecursionDepth, MaxRecursion);
             return null;
         }
         
@@ -35,11 +36,20 @@ public partial class Solver
             var existing = this.TryReuseExistingProof(implGoalChain, implGoals);
             if (existing != null)
             {
+                LogMsg("Reused Impl Goal", "{0} : {1}", implGoalChain.Goal.Target, implGoalChain.Goal.Trait);
                 return existing;
             }
         }
         
         var eqGoals = new List<EqGoal>(substitutions.LateEqGoals);
+        if (substitutions.LateEqGoals.Count > 0)
+        {
+            foreach (var eq in substitutions.LateEqGoals)
+            {
+                LogMsg("Late Goal added", "{0}", eq);
+            }
+        }
+
         AddAssocTraitGoals(eqGoals, implGoalChain.Goal);
 
         // add new instantiation
@@ -83,6 +93,7 @@ public partial class Solver
         {
             var left = new Alias(goal.Target, goal.Trait, goalAssocConstraint.Key);
             var right = goalAssocConstraint.Value;
+            LogMsg("Add assoc trait", "{0}", new EqGoal(left, right));
             eqGoals.Add(new EqGoal(left, right));   
         }
     }
@@ -101,12 +112,14 @@ public partial class Solver
             {
                 var c = ic.Constraints[i];
                 var n = inst.Constraints[i];
+                var goal = new ImplGoal(
+                    c.Target.Substitute(substConstraints),
+                    c.Trait.Substitute(substConstraints),
+                    c.AssocConstraints.ToDictionary(x => x.Key, x => x.Value.Substitute(substConstraints)),
+                    n);
+                LogMsg("Requirement added", "{0}", goal);
                 implGoals.Add(new RecImplGoalChain(
-                    new ImplGoal(
-                        c.Target.Substitute(substConstraints),
-                        c.Trait.Substitute(substConstraints),
-                        c.AssocConstraints.ToDictionary(x => x.Key, x => x.Value.Substitute(substConstraints)),
-                        n),
+                    goal,
                     new ProofChain(implGoalChain.Chain),
                     implGoalChain.RecursionDepth + 1));
             }
@@ -195,13 +208,13 @@ public partial class Solver
         return newArgs.All(x => x.Value.Contains(onStackArgs[x.Key]));
     }
 
-    private List<Solver> GetImplCandidates(RecImplGoalChain implGoal)
+    private IEnumerable<Solver> GetImplCandidates(RecImplGoalChain implGoal)
     {
         if (implGoal.Goal.Target is IrAlias irAlias)
         {
-            List<Solver> candidates = new();
             foreach (var clause in this._clauses.OfType<AssocTyClause>())
             {
+                LogMsg("Trying impl candidate", "{0}", clause);
                 if (clause.AliasName != irAlias.Name)
                 {
                     continue;
@@ -213,52 +226,62 @@ public partial class Solver
                 var trait = clause.Trait.Replace<BoundVar>(b => newVars[b]);
                 var constraint = clause.Constraint.Replace<BoundVar>(b => newVars[b]);
                 
+                LogMsg("Matching", "{0} = {1}", trait, irAlias.Trait);
+                LogMsg("Matching", "{0} = {1}", constraint, implGoal.Goal.Trait);
+                
                 var subs = Term.TryMatch(
                     new App("S", [trait, constraint]),
                     new App("S", [irAlias.Trait, implGoal.Goal.Trait]));
                 
                 if (subs == null)
                 {
+                    Log("matching failed");
                     continue;
                 }
 
                 if (newVars.Keys.All(k => subs.Substitutions.ContainsKey(newVars[k])))
                 {
+                    Log("matched clause {0}", clause);
                     var candidate = this.BuildImplCandidate(subs, newVars, clause, implGoal);
                     if (candidate != null)
-                        candidates.Add(candidate);
+                        yield return candidate;
                 }
             }
-
-            return candidates;
         }
         else
         {
-            List<Solver> candidates = new();
             foreach (var implClause in this._clauses.OfType<ImplClause>())
             {
+                LogMsg("Trying impl candidate", "{0}", implClause);
                 var newVars = implClause.TyParams.Select(x => (BoundVar: x, FreeVar: FreeVar.New()))
                                         .ToDictionary(x => x.BoundVar, x => x.FreeVar);
                 var trait = implClause.Trait.Replace<BoundVar>(b => newVars[b]);
                 var target = implClause.Target.Replace<BoundVar>(b => newVars[b]);
+                
+                LogMsg("Matching", "{0} = {1}", target, implGoal.Goal.Target);
+                LogMsg("Matching", "{0} = {1}", trait, implGoal.Goal.Trait);
 
                 var subs = Term.TryMatch(
                     new App("S", [target, trait]),
                     new App("S", [implGoal.Goal.Target, implGoal.Goal.Trait]));
                 if (subs == null)
                 {
+                    Log("matching failed");
                     continue;
                 }
 
                 if (newVars.Keys.All(k => subs.Substitutions.ContainsKey(newVars[k])))
                 {
+                    Log("matched clause {0}", implClause);
+                    foreach (var k in subs.Substitutions.Keys)
+                    {
+                        Log("{0} => {1}", k, subs.Substitutions[k]);
+                    }
                     var candidate = this.BuildImplCandidate(subs, newVars, implClause, implGoal);
                     if (candidate != null)
-                        candidates.Add(candidate);
+                        yield return candidate;
                 }
             }
-
-            return candidates;
         }
     }
 }

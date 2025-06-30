@@ -88,16 +88,16 @@ public partial class Solver
             Console.WriteLine(message, format));
     }
     
-    private static void LogTitle(object? obj)
-    {
-        PrintToConsole(() =>
-            Console.WriteLine(Bold().Text(obj?.ToString() ?? "<null>")));
-    }
-    
     private static void LogTitle(string message, params object[] format)
     {
         PrintToConsole(() =>
             Console.WriteLine(Bold().Text(string.Format(message, format))));
+    }
+    
+    private static void LogMsg(string title, string message, params object[] format)
+    {
+        PrintToConsole(() =>
+            Console.WriteLine(Bold().Text(title + ": ") + string.Format(message, format)));
     }
 
     // The correctness of this depends on clauses not overlapping.
@@ -120,6 +120,7 @@ public partial class Solver
     {
         if (this._iterations.Overflown())
         {
+            LogTitle("Overflown: {0}", this._iterations.Count);
             return null;
         }
         
@@ -134,6 +135,11 @@ public partial class Solver
     private Solver? HandleImplAndNormalGoals()
     {
         var bestGoal = this.ElectBestGoal();
+        if (bestGoal.Impl != null)
+            LogMsg("Best Impl Goal", "{0}", bestGoal.Impl);
+        if (bestGoal.Norm != null)
+            LogMsg("Best Norm Goal", "{0}", bestGoal.Norm);
+        
         if (bestGoal.Impl == null && bestGoal.Norm == null)
         {
             return this;
@@ -212,6 +218,15 @@ public partial class Solver
 
     private bool HandleEqGoals()
     {
+        if(this._eqGoals.Count != 0)
+        {
+            LogTitle("Handling Eq Goals:");
+            foreach (var eqGoal in this._eqGoals)
+            {
+                Log(eqGoal);
+            }
+        }
+        
         if(this._eqGoals.Count == 0)
             return true;
 
@@ -263,6 +278,7 @@ public partial class Solver
         foreach (var alias in subs.Keys)
         {
             var normGoal = new NormGoal(alias, subs[alias]);
+            LogMsg("Add norm goal", "{0}", normGoal);
             goalChains.Add(new RecNormGoalChain(normGoal, new ProofChain(proofChain), recursionDepth + 1));
         }
     }
@@ -298,6 +314,9 @@ public partial class Solver
                 {
                     if (clause == pg.Clause && IsInfiniteRecursion(pg.Args, args))
                     {
+                        LogMsg("Infinite recursion", "clause {0}", clause);
+                        LogMsg("Already Proven Args", string.Join(", ", pg.Args.Select((_, i) => $"{{{i}}}")), pg.Args);
+                        LogMsg("To Be Proven Args", string.Join(", ", args.Select((_, i) => $"{{{i}}}")), args);
                         return false;
                     }
                 }
