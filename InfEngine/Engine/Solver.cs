@@ -315,8 +315,10 @@ public partial class Solver
                     if (clause == pg.Clause && IsInfiniteRecursion(pg.Args, args))
                     {
                         LogMsg("Infinite recursion", "clause {0}", clause);
-                        LogMsg("Already Proven Args", string.Join(", ", pg.Args.Select((_, i) => $"{{{i}}}")), pg.Args);
-                        LogMsg("To Be Proven Args", string.Join(", ", args.Select((_, i) => $"{{{i}}}")), args);
+                        LogMsg("Already Proven Args", string.Join(", ", pg.Args.Select((_, i) => $"{{{i}}}")), 
+                            pg.Args.Select(x => $"{x.Key} = {x.Value}").ToArray<object>());
+                        LogMsg("To Be Proven Args", string.Join(", ", args.Select((_, i) => $"{{{i}}}")), 
+                            args.Select(x => $"{x.Key} = {x.Value}").ToArray<object>());
                         return false;
                     }
                 }
