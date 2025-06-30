@@ -23,13 +23,81 @@ public partial class Solver
 
     public SolverResult? Run()
     {
+        this.LogGoalsAndClauses();
+
+
         var solver = this.InternalRun();
         if (solver == null)
         {
             return null;
         }
+        
+        this.LogResultsAndMatches(solver);
 
         return new SolverResult(solver._instatiations, solver._match);
+    }
+
+    private void LogResultsAndMatches(Solver solver)
+    {
+        LogTitle("Results:");
+        LogTitle("Instantiations:");
+        foreach (var instatiation in solver._instatiations)
+        {
+            Log("{0} = {1}", instatiation.Key, instatiation.Value);
+        }
+        LogTitle("Matches:");
+        foreach (var sub in solver._match.Substitutions)
+        {
+            Log("{0} => {1}", sub.Key, sub.Value);
+        }
+    }
+
+    private void LogGoalsAndClauses()
+    {
+        LogTitle("Starting Solver:");
+        LogTitle("Constraints:");
+        foreach (var eqGoal in this._eqGoals)
+        {
+            Log(eqGoal);
+        }
+        foreach (var normGoal in this._normGoals)
+        {
+            Log(normGoal);
+        }
+        foreach (var implGoal in this._implGoals)
+        {
+            Log(implGoal);
+        }
+
+        LogTitle("Clauses:");
+        foreach (var clause in this._clauses)
+        {
+            Log(clause);
+        }
+    }
+
+    private static void Log(object? obj)
+    {
+        PrintToConsole(() =>
+            Console.WriteLine(obj?.ToString() ?? "<null>"));
+    }
+    
+    private static void Log(string message, params object[] format)
+    {
+        PrintToConsole(() =>
+            Console.WriteLine(message, format));
+    }
+    
+    private static void LogTitle(object? obj)
+    {
+        PrintToConsole(() =>
+            Console.WriteLine(Bold().Text(obj?.ToString() ?? "<null>")));
+    }
+    
+    private static void LogTitle(string message, params object[] format)
+    {
+        PrintToConsole(() =>
+            Console.WriteLine(Bold().Text(string.Format(message, format))));
     }
 
     // The correctness of this depends on clauses not overlapping.

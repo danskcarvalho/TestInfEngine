@@ -6,7 +6,7 @@ public record FreeVar(string Name) : Term
     
     public static FreeVar New() => new($"?{++_seed}");
     
-    public override string ToString() => $"?{Name}";
+    public override string ToString() => PrintVar($"?{Name}");
 
     public override bool Any<T>(Func<T, bool> pred)
     {

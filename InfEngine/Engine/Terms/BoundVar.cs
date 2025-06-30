@@ -31,5 +31,5 @@ public record BoundVar(long Index) : Term
         yield break;
     }
 
-    public override string ToString() => $"${Index}";
+    public override string ToString() => PrintVar($"${Index}");
 }

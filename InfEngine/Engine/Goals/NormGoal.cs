@@ -9,6 +9,8 @@ public record NormGoal(Alias Alias, FreeVar Var) : Goal
         return new NormGoal((Alias)Alias.Substitute(match), Var);
     }
 
+    public override string ToString() => $"{Alias} --> {Var}";
+
     public bool IsNonGeneric()
     {
         if (Alias.Any<FreeVar>())

@@ -6,14 +6,8 @@ using InfEngine.Engine;
 var str = Z.M("str");
 var eq = Z.M("Eq");
 var list = Z.A1("List");
-var arc = Z.A1("Arc");
 var strEq = Z.Impl0("strEq", str, eq);
-var dictEq = Z.Impl1("listEq", (t1) => Z.Impl(list(t1), eq, Z.ImplC(list(arc(t1)), eq)));
-var goal1 = Z.ImplG(list(str), eq, "goal1");
-var solver = new Solver([goal1], [strEq, dictEq]);
+var listEq = Z.Impl1("listEq", t => Z.Impl(list(t), eq, Z.ImplC(t, eq)));
+var goal = Z.ImplG(list(list(str)), eq, "goal1");
+var solver = new Solver([goal], [strEq, listEq]);
 var result = solver.Run();
-
-// infinite recursion
-Console.WriteLine(result);
-
-Console.WriteLine("Hello, World!");
