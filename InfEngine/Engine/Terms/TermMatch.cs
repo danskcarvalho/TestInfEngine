@@ -133,10 +133,11 @@ public record TermMatch(
 
     public TermMatch Merge(TermMatch match)
     {
-        Dictionary<FreeVar, Term> result = new Dictionary<FreeVar, Term>();
-        foreach (var key in match.Substitutions.Keys)
+        Dictionary<FreeVar, Term> result = this.Substitutions.ToDictionary();
+        
+        foreach (var key in this.Substitutions.Keys)
         {
-            result[key] = match.Substitutions[key].Substitute(match);
+            result[key] = this.Substitutions[key].Substitute(match);
         }
 
         foreach (var key in match.Substitutions.Keys)

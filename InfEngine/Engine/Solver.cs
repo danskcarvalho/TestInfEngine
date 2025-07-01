@@ -282,6 +282,23 @@ public partial class Solver
             goalChains.Add(new RecNormGoalChain(normGoal, new ProofChain(proofChain), recursionDepth + 1));
         }
     }
+    
+    private static bool IsInfiniteRecursion(
+        Clause onStackClause, Clause newClause,
+        IReadOnlyDictionary<BoundVar, Term> onStackArgs, IReadOnlyDictionary<BoundVar, Term> newArgs)
+    {
+        if (onStackClause != newClause)
+        {
+            return false;
+        }
+        
+        if (onStackArgs.Count == newArgs.Count && onStackArgs.Count == 0)
+        {
+            return true;
+        }
+        
+        return newArgs.All(x => x.Value.Contains(onStackArgs[x.Key]));
+    }
 
     private static bool TryAddProvenGoal(
         ProofChain proofChain,
@@ -312,7 +329,7 @@ public partial class Solver
             {
                 foreach (var pg in list)
                 {
-                    if (clause == pg.Clause && IsInfiniteRecursion(pg.Args, args))
+                    if (IsInfiniteRecursion(pg.Clause, clause, pg.Args, args))
                     {
                         LogMsg("Infinite recursion", "clause {0}", clause);
                         LogMsg("Already Proven Args", string.Join(", ", pg.Args.Select((_, i) => $"{{{i}}}")), 

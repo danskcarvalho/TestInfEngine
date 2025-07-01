@@ -203,11 +203,6 @@ public partial class Solver
         return null;
     }
 
-    private static bool IsInfiniteRecursion(IReadOnlyDictionary<BoundVar, Term> onStackArgs, IReadOnlyDictionary<BoundVar, Term> newArgs)
-    {
-        return newArgs.All(x => x.Value.Contains(onStackArgs[x.Key]));
-    }
-
     private IEnumerable<Solver> GetImplCandidates(RecImplGoalChain implGoal)
     {
         if (implGoal.Goal.Target is IrAlias irAlias)

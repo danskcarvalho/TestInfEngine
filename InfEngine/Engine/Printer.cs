@@ -10,7 +10,7 @@ public static class Printer
         {
             print();
         }
-        catch
+        finally
         {
             _printToConsole = false;
         }

@@ -257,6 +257,9 @@ public partial class Solver
         }
 
         {
+            var normGoals = this._normGoals.ToList();
+            normGoals.Remove(normGoalChain);
+            
             var eqGoals = this._eqGoals.ToList();
             eqGoals.Add(new EqGoal(normGoalChain.Goal.Var, 
                 new IrAlias(
@@ -283,7 +286,7 @@ public partial class Solver
                 _eqGoals = eqGoals,
                 _instatiations = this._instatiations.ToDictionary(),
                 _provenImplGoals = this._provenImplGoals.ToDictionary(),
-                _normGoals = this._normGoals.ToList(),
+                _normGoals = normGoals,
                 _reuseImplGoals = this._reuseImplGoals.ToDictionary(),
                 _reuseNormGoals = this._reuseNormGoals.ToDictionary()
             };
