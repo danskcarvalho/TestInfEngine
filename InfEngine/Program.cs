@@ -4,10 +4,10 @@ using InfEngine;
 using InfEngine.Engine;
 
 var str = Z.M("str");
-var eq = Z.M("Eq");
-var list = Z.A1("List");
-var strEq = Z.Impl0("strEq", str, eq);
-var dictEq = Z.Impl1("listEq", (t1) => Z.Impl(list(t1), eq, Z.ImplC(list(list(t1)), eq)));
-var goal1 = Z.ImplG(list(str), eq, "goal1");
-var solver = new Solver([goal1], [strEq, dictEq]);
+var i32 = Z.M("i32");
+var trait = Z.M("Trait");
+var aliasClause = Z.Alias0("Proj", str, trait, i32);
+var implClause = Z.Impl0("strTrait", str, trait);
+var goal = Z.NormG(str.Proj(trait, "Proj"), Z.Fv("a"));
+var solver = new Solver([goal], [aliasClause, implClause]);
 var result = solver.Run();

@@ -15,4 +15,6 @@ public record AliasImplClause(
     public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
 
     public virtual bool Equals(AliasImplClause? other) => ReferenceEquals(this, other);
+
+    public override string ToString() => $"{Target}::<{Trait}>::{AliasName} = {Aliased}";
 }
