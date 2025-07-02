@@ -107,4 +107,68 @@ public class NormTests
         Assert.Contains(Z.Fv("a"), result.Value.Match.Substitutions);
         Assert.Equal(num, result.Value.Match.Substitutions[Z.Fv("a")]);
     }
+
+    [Fact]
+    public void Test7()
+    {
+        var b = Z.M("B");
+        var num = Z.M("Num");
+        var trait = Z.M("Trait");
+        var list = Z.M("List");
+        var implClause1 = Z.Impl0("listTrait", b, list).Assoc("Item", num);
+        var implClause2 = Z.Impl0("numTrait", num, trait);
+        var goal = Z.ImplG(b.Proj(list, "Item"), trait, "goal1");
+        var solver = new Solver([goal], [implClause1, implClause2]);
+        var result = solver.Run();
+        Assert.NotNull(result);
+    }
+    
+    [Fact]
+    public void Test8()
+    {
+        var b = Z.M("B");
+        var str = Z.M("str");
+        var num = Z.M("Num");
+        var trait = Z.M("Trait");
+        var list = Z.M("List");
+        var implClause1 = Z.Impl0("listTrait", b, list).Assoc("Item", num);
+        var implClause2 = Z.Impl0("numTrait", num, trait).Assoc("Item", str);
+        var goal = Z.NormG(b.Proj(list, "Item").Proj(trait, "Item"), Z.Fv("a"));
+        var solver = new Solver([goal], [implClause1, implClause2]);
+        var result = solver.Run();
+        Assert.NotNull(result);
+        Assert.Contains(Z.Fv("a"), result.Value.Match.Substitutions);
+        Assert.Equal(str, result.Value.Match.Substitutions[Z.Fv("a")]);
+    }
+    
+    [Fact]
+    public void Test9()
+    {
+        var b = Z.M("B");
+        var str = Z.M("str");
+        var num = Z.M("Num");
+        var real = Z.M("Real");
+        var trait = Z.M("Trait");
+        var list = Z.M("List");
+        var implClause1 = Z.Impl0("listTrait", b, list).Assoc("Item", real);
+        var implClause2 = Z.Impl0("numTrait", num, trait).Assoc("Item", str);
+        var goal = Z.NormG(b.Proj(list, "Item").Proj(trait, "Item"), Z.Fv("a"));
+        var solver = new Solver([goal], [implClause1, implClause2]);
+        var result = solver.Run();
+        Assert.Null(result);
+    }
+    
+    [Fact]
+    public void Test10()
+    {
+        var num = Z.M("Num");
+        var trait = Z.M("Trait");
+        var implClause1 = Z.Impl0("numTrait", num, trait).Assoc("Item", num);
+        var goal = Z.NormG(num.Proj(trait, "Item").Proj(trait, "Item").Proj(trait, "Item"), Z.Fv("a"));
+        var solver = new Solver([goal], [implClause1]);
+        var result = solver.Run();
+        Assert.NotNull(result);
+        Assert.Contains(Z.Fv("a"), result.Value.Match.Substitutions);
+        Assert.Equal(num, result.Value.Match.Substitutions[Z.Fv("a")]);
+    }
 }

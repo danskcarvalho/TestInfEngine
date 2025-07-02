@@ -247,8 +247,8 @@ public partial class Solver
         HashSet<Alias> aliases = new HashSet<Alias>();
         foreach (var eqGoal in eqGoals)
         {
-            aliases.UnionWith(eqGoal.Left.Descendants<Alias>());
-            aliases.UnionWith(eqGoal.Right.Descendants<Alias>());
+            aliases.UnionWith(eqGoal.Left.DescendantsAndSelf<Alias>());
+            aliases.UnionWith(eqGoal.Right.DescendantsAndSelf<Alias>());
         }
         var toBeNormalized = aliases.ToDictionary(x => x, _ => FreeVar.New());
         var subs = new Dictionary<Alias, FreeVar>();

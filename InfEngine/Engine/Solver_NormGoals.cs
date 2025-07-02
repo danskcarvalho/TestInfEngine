@@ -40,22 +40,22 @@ public partial class Solver
         {
             return existing;
         }
+
+        var eqGoals = new List<EqGoal> { new EqGoal(normGoalChain.Goal.Var, aliased) };
+        LogMsg("Normalize", "{0}", new EqGoal(normGoalChain.Goal.Var, aliased));
         
-        var eqGoals = new List<EqGoal>(substitutions.LateEqGoals);
+        // we create normalization goals specifically here so we can chain the proofs so we have a well-defined
+        // recursion chain
+        CreateNormalizationGoals(normGoals, eqGoals, normGoalChain.Chain, normGoalChain.RecursionDepth);
+        
+        // Add late goals
+        eqGoals.AddRange(substitutions.LateEqGoals);
         
         // add substitutions as eq goals
         AddSubstitutionsAsEqGoals(substitutions, eqGoals);
 
         // Add requirements of the found instance to the solver
         AddRequirementsFromNorm(normGoalChain, substitutions, varMap, clause, implGoals);
-        
-        // Normalize
-        eqGoals.Add(new EqGoal(normGoalChain.Goal.Var, aliased));
-        LogMsg("Normalize", "{0}", new EqGoal(normGoalChain.Goal.Var, aliased));
-        
-        // we create normalization goals specifically here so we can chain the proofs so we have a well-defined
-        // recursion chain
-        CreateNormalizationGoals(normGoals, eqGoals, normGoalChain.Chain, normGoalChain.RecursionDepth);
         
         // add the new goal to the solver so we can reuse it
         var newReuseNormGoals = this._reuseNormGoals.ToDictionary();

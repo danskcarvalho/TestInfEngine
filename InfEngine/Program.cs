@@ -3,12 +3,11 @@
 using InfEngine;
 using InfEngine.Engine;
 
-var a = Z.M("B");
 var num = Z.M("Num");
-var list = Z.M("List");
-var implClause = Z.Impl0("listTrait", a, list).Assoc("Item", num);
-var goal = Z.NormG(a.Proj(list, "Item"), Z.Fv("a"));
-var solver = new Solver([goal], [implClause]);
+var trait = Z.M("Trait");
+var implClause1 = Z.Impl0("numTrait", num, trait).Assoc("Item", num);
+var goal = Z.NormG(num.Proj(trait, "Item").Proj(trait, "Item"), Z.Fv("a"));
+var solver = new Solver([goal], [implClause1]);
 var result = solver.Run();
 
 Console.WriteLine("Hello World!");
