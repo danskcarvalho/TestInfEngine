@@ -391,7 +391,8 @@ public partial class Solver
         Dictionary<ProofChain, List<ProvenGoal>> provenGoals,
         Clause clause,
         TermMatch substitutions,
-        Dictionary<BoundVar, FreeVar> varMap)
+        Dictionary<BoundVar, FreeVar> varMap,
+        bool isNormalizing)
     {
         ProofChain? chain = proofChain;
         Dictionary<BoundVar, Term> args;
@@ -415,7 +416,7 @@ public partial class Solver
             {
                 foreach (var pg in list)
                 {
-                    if (IsInfiniteRecursion(pg.Clause, clause, pg.Args, args))
+                    if (pg.IsNormalizing == isNormalizing && IsInfiniteRecursion(pg.Clause, clause, pg.Args, args))
                     {
                         LogMsg("Infinite recursion", "clause {0}", clause);
                         LogMsg("Already Proven Args", string.Join(", ", pg.Args.Select((_, i) => $"{{{i}}}")), 
@@ -437,7 +438,8 @@ public partial class Solver
         provenGoals[proofChain].Add(
             new ProvenGoal(
                 clause,
-                args));
+                args,
+                isNormalizing));
         return true;
     }
 }

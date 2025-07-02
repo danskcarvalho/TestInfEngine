@@ -22,8 +22,7 @@ public partial class Solver
         
         // infinite recursion
         // if it's an impl clause, we don't add it because it will give us infinite recursion
-        if (clause is not ImplClause && 
-            !TryAddProvenGoal(normGoalChain.Chain, provenGoals, clause, substitutions, varMap))
+        if (!TryAddProvenGoal(normGoalChain.Chain, provenGoals, clause, substitutions, varMap, isNormalizing: true))
         {
             return null;
         }

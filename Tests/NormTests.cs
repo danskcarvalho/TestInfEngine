@@ -171,4 +171,18 @@ public class NormTests
         Assert.Contains(Z.Fv("a"), result.Value.Match.Substitutions);
         Assert.Equal(num, result.Value.Match.Substitutions[Z.Fv("a")]);
     }
+
+    [Fact]
+    public void Test11()
+    {
+        var num = Z.M("Num");
+        var trait = Z.M("Trait");
+        var implClause1 = Z.Impl0("numTrait", num.Proj(trait, "Item"), trait).Assoc("Item", num);
+        var goal = Z.NormG(num.Proj(trait, "Item"), Z.Fv("a"));
+        var solver = new Solver([goal], [implClause1]);
+        var result = solver.Run();
+        Assert.NotNull(result);
+        Assert.Contains(Z.Fv("a"), result.Value.Match.Substitutions);
+        Assert.Equal(num, result.Value.Match.Substitutions[Z.Fv("a")]);
+    }
 }
