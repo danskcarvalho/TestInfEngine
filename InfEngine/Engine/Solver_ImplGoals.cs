@@ -20,14 +20,14 @@ public partial class Solver
         // infinite recursion
         if (!TryAddProvenGoal(implGoalChain.Chain, provenGoals, clause, substitutions, varMap, isNormalizing: false))
         {
-            return null;
+            return new Solver(this._iterations) { _infRec = true };
         }
 
         // possibly infinite recursion
         if (implGoalChain.RecursionDepth > MaxRecursion)
         {
             LogMsg("Max Recursion", "{0} > {1}", implGoalChain.RecursionDepth, MaxRecursion);
-            return null;
+            return new Solver(this._iterations) { _infRec = true };
         }
         
         // test if the goal has already been solved

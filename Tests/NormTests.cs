@@ -181,8 +181,6 @@ public class NormTests
         var goal = Z.NormG(num.Proj(trait, "Item"), Z.Fv("a"));
         var solver = new Solver([goal], [implClause1]);
         var result = solver.Run();
-        Assert.NotNull(result);
-        Assert.Contains(Z.Fv("a"), result.Value.Match.Substitutions);
-        Assert.Equal(num, result.Value.Match.Substitutions[Z.Fv("a")]);
+        Assert.Null(result);
     }
 }

@@ -20,6 +20,7 @@ public partial class Solver
     private Dictionary<string, Instatiation> _instatiations = new();
     private static long _goalSeed;
     private readonly IterationCount _iterations;
+    private bool _infRec = false;
 
     public SolverResult? Run()
     {
@@ -33,6 +34,9 @@ public partial class Solver
         }
         
         this.LogResultsAndMatches(solver);
+
+        if (solver._infRec)
+            return null;
 
         return new SolverResult(solver._instatiations, solver._match);
     }
@@ -133,10 +137,10 @@ public partial class Solver
             return null;
         }
 
-        return this.HandleImplAndNormalGoals();
+        return this.HandleImplAndNormGoals();
     }
 
-    private Solver? HandleImplAndNormalGoals()
+    private Solver? HandleImplAndNormGoals()
     {
         var bestGoal = this.ElectBestGoal();
         if (bestGoal.Impl != null)
@@ -155,6 +159,9 @@ public partial class Solver
 
             foreach (var candidate in candidates)
             {
+                if (candidate._infRec)
+                    continue;
+                
                 var solver = candidate.InternalRun();
                 if (solver != null)
                     return solver;
@@ -166,6 +173,9 @@ public partial class Solver
 
             foreach (var candidate in candidates)
             {
+                if (candidate._infRec)
+                    return candidate; // we don't try to normalize infinite recursion
+                
                 var solver = candidate.InternalRun();
                 if (solver != null)
                     return solver;

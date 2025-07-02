@@ -24,14 +24,14 @@ public partial class Solver
         // if it's an impl clause, we don't add it because it will give us infinite recursion
         if (!TryAddProvenGoal(normGoalChain.Chain, provenGoals, clause, substitutions, varMap, isNormalizing: true))
         {
-            return null;
+            return new Solver(this._iterations) { _infRec = true };
         }
 
         // possibly infinite recursion
         if (normGoalChain.RecursionDepth > MaxRecursion)
         {
             LogMsg("Max Recursion", "{0} > {1}", normGoalChain.RecursionDepth, MaxRecursion);
-            return null;
+            return new Solver(this._iterations) { _infRec = true };
         }
         
         var existing = this.TryReuseExistingNorm(normGoalChain, normGoals);
