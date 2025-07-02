@@ -26,18 +26,18 @@ public partial class Solver
     {
         this.LogGoalsAndClauses();
 
-
-        var solver = this.InternalRun();
+        var driver = new SolverDriver(this);
+        var solver = driver.Run();
         if (solver == null)
         {
             return null;
         }
         
         this.LogResultsAndMatches(solver);
-
+        
         if (solver._infRec)
             return null;
-
+        
         return new SolverResult(solver._instatiations, solver._match);
     }
 
@@ -124,7 +124,7 @@ public partial class Solver
         this._iterations.Increment();
     }
 
-    private Solver? InternalRun()
+    private SolverDriverFrame? InternalRun()
     {
         if (this._iterations.Overflown())
         {
@@ -140,7 +140,7 @@ public partial class Solver
         return this.HandleImplAndNormGoals();
     }
 
-    private Solver? HandleImplAndNormGoals()
+    private SolverDriverFrame? HandleImplAndNormGoals()
     {
         var bestGoal = this.ElectBestGoal();
         if (bestGoal.Impl != null)
@@ -150,39 +150,15 @@ public partial class Solver
         
         if (bestGoal.Impl == null && bestGoal.Norm == null)
         {
-            return this;
+            return new SuccessFrame();
         }
 
         if (bestGoal.Impl != null)
         {
-            var candidates = this.GetImplCandidates(bestGoal.Impl!.Value);
-
-            foreach (var candidate in candidates)
-            {
-                if (candidate._infRec)
-                    continue;
-                
-                var solver = candidate.InternalRun();
-                if (solver != null)
-                    return solver;
-            }
-        }
-        else
-        {
-            var candidates = this.GetNormCandidates(bestGoal.Norm!.Value);
-
-            foreach (var candidate in candidates)
-            {
-                if (candidate._infRec)
-                    return candidate; // we don't try to normalize infinite recursion
-                
-                var solver = candidate.InternalRun();
-                if (solver != null)
-                    return solver;
-            }
+            return new ImplsDriverFrame(this.GetImplCandidates(bestGoal.Impl!.Value).GetEnumerator());
         }
 
-        return null;
+        return new NormsDriverFrame(this.GetNormCandidates(bestGoal.Norm!.Value).GetEnumerator());
     }
 
     private (RecImplGoalChain? Impl, RecNormGoalChain? Norm) ElectBestGoal()
