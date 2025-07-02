@@ -103,9 +103,13 @@ public partial class Solver
     // The correctness of this depends on clauses not overlapping.
     public Solver(List<Goal> goals, List<Clause> clauses)
     {
+        var implGoals = goals.OfType<ImplGoal>().ToList();
+        var normGoals = goals.OfType<NormGoal>().ToList();
         this._eqGoals.AddRange(goals.OfType<EqGoal>());
-        this._implGoals.AddRange(goals.OfType<ImplGoal>().Select(x => new RecImplGoalChain(x, new ProofChain(), 0)));
-        this._normGoals.AddRange(goals.OfType<NormGoal>().Select(x => new RecNormGoalChain(x, new ProofChain(), 0)));
+        CreateNormalizationGoals(this._normGoals, implGoals);
+        CreateNormalizationGoals(this._normGoals, normGoals);
+        this._implGoals.AddRange(implGoals.Select(x => new RecImplGoalChain(x, new ProofChain(), 0)));
+        this._normGoals.AddRange(normGoals.Select(x => new RecNormGoalChain(x, new ProofChain(), 0)));
         this._clauses.AddRange(clauses);
         this._iterations = new IterationCount();
     }
@@ -278,6 +282,90 @@ public partial class Solver
             var normGoal = new NormGoal(alias, subs[alias]);
             LogMsg("Add norm goal", "{0}", normGoal);
             goalChains.Add(new RecNormGoalChain(normGoal, new ProofChain(proofChain), recursionDepth + 1));
+        }
+    }
+    
+    
+    private static void CreateNormalizationGoals(
+        List<RecNormGoalChain> goalChains,
+        List<ImplGoal> goals)
+    {
+        HashSet<Alias> aliases = new HashSet<Alias>();
+        foreach (var goal in goals)
+        {
+            aliases.UnionWith(goal.Target.DescendantsAndSelf<Alias>());
+            aliases.UnionWith(goal.Trait.DescendantsAndSelf<Alias>());
+            aliases.UnionWith(goal.AssocConstraints.Values.SelectMany(x => x.DescendantsAndSelf<Alias>()));
+        }
+        var toBeNormalized = aliases.ToDictionary(x => x, _ => FreeVar.New());
+        var subs = new Dictionary<Alias, FreeVar>();
+        foreach (var alias in toBeNormalized)
+        {
+            var newAlias = (Alias)alias.Key.Replace<Alias>(x =>
+            {
+                if (x == alias.Key)
+                {
+                    return null;
+                }
+                return toBeNormalized.GetValueOrDefault(x);
+            });
+            subs[newAlias] = alias.Value;
+        }
+
+        for (int i = 0; i < goals.Count; i++)
+        {
+            var n = goals[i];
+            var target = n.Target.Replace<Alias>(a => toBeNormalized.GetValueOrDefault(a));
+            var trait = n.Trait.Replace<Alias>(a => toBeNormalized.GetValueOrDefault(a));
+            var assocConstraints = n.AssocConstraints.ToDictionary(x => x.Key, x => x.Value.Replace<Alias>(a => toBeNormalized.GetValueOrDefault(a)));
+            goals[i] = new ImplGoal(target, trait, assocConstraints, n.ResolvesTo);
+        }
+
+        foreach (var alias in subs.Keys)
+        {
+            var normGoal = new NormGoal(alias, subs[alias]);
+            LogMsg("Add norm goal", "{0}", normGoal);
+            goalChains.Add(new RecNormGoalChain(normGoal, new ProofChain(), 0));
+        }
+    }
+    
+    private static void CreateNormalizationGoals(
+        List<RecNormGoalChain> goalChains,
+        List<NormGoal> goals)
+    {
+        HashSet<Alias> aliases = new HashSet<Alias>();
+        foreach (var goal in goals)
+        {
+            aliases.UnionWith(goal.Alias.Descendants<Alias>());
+        }
+        var toBeNormalized = aliases.ToDictionary(x => x, _ => FreeVar.New());
+        var subs = new Dictionary<Alias, FreeVar>();
+        foreach (var alias in toBeNormalized)
+        {
+            var newAlias = (Alias)alias.Key.Replace<Alias>(x =>
+            {
+                if (x == alias.Key)
+                {
+                    return null;
+                }
+                return toBeNormalized.GetValueOrDefault(x);
+            });
+            subs[newAlias] = alias.Value;
+        }
+
+        for (int i = 0; i < goals.Count; i++)
+        {
+            var n = goals[i];
+            var target = n.Alias.Target.Replace<Alias>(a => toBeNormalized.GetValueOrDefault(a));
+            var trait = n.Alias.Trait.Replace<Alias>(a => toBeNormalized.GetValueOrDefault(a));
+            goals[i] = new NormGoal(new Alias(target, trait, n.Alias.Name), n.Var);
+        }
+
+        foreach (var alias in subs.Keys)
+        {
+            var normGoal = new NormGoal(alias, subs[alias]);
+            LogMsg("Add norm goal", "{0}", normGoal);
+            goalChains.Add(new RecNormGoalChain(normGoal, new ProofChain(), 0));
         }
     }
     

@@ -259,6 +259,9 @@ public partial class Solver
         }
 
         {
+            // NOTICE: This is only valid if we can prove the impl from the local environment (i.e. the function)
+            // otherwise, we are not allowed to instroduce a irreducible alias.
+            
             var normGoals = this._normGoals.ToList();
             normGoals.Remove(normGoalChain);
             
