@@ -1,4 +1,5 @@
 using InfEngine.Engine;
+using InfEngine.Engine.Terms;
 
 namespace Tests;
 
@@ -194,5 +195,114 @@ public class NormTests
         var solver = new Solver([goal], [implClause1]);
         var result = solver.Run();
         Assert.Null(result);
+    }
+    
+    [Fact]
+    public void Test13()
+    {
+        var num = Z.M("Num");
+        var trait = Z.M("Trait");
+        var implClause1 = Z.Impl0("numTrait", num, trait);
+        var goal = Z.NormG(num.Proj(trait, "Item"), Z.Fv("a"));
+        var solver = new Solver([goal], [implClause1]);
+        var result = solver.Run();
+        Assert.NotNull(result);
+        Assert.Contains(Z.Fv("a"), result.Value.Match.Substitutions);
+        Assert.Equal(new IrAlias(num, trait, "Item"), result.Value.Match.Substitutions[Z.Fv("a")]);
+    }
+
+    [Fact]
+    public void Test14()
+    {
+        var num = Z.M("Num");
+        var trait = Z.M("Trait");
+        var eq = Z.M("Eq");
+        var str = Z.M("Str");
+        var implClause1 = Z.Impl0("numTrait", num, trait).Assoc("Item", str);
+        var goal = Z.NormG(num.Proj(trait, "Item").Proj(eq, "Item"), Z.Fv("a"));
+        var solver = new Solver([goal], [implClause1]);
+        var result = solver.Run();
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void Test15()
+    {
+        var num = Z.M("Num");
+        var trait = Z.M("Trait");
+        var eq = Z.M("Eq");
+        var str = Z.M("Str");
+        var implClause1 = Z.Impl0("numTrait", num, trait).Assoc("Item", str);
+        var clause2 = Z.AssocTy0("Item", trait, eq);
+        var goal = Z.NormG(num.Proj(trait, "Item").Proj(eq, "Item"), Z.Fv("a"));
+        var solver = new Solver([goal], [implClause1, clause2]);
+        var result = solver.Run();
+        Assert.NotNull(result);
+        Assert.Equal(new IrAlias(new IrAlias(num, trait, "Item"), eq, "Item"), result.Value.Match.Substitutions[Z.Fv("a")]);
+    }
+    
+    [Fact]
+    public void Test16()
+    {
+        var num = Z.M("Num");
+        var trait = Z.M("Trait");
+        var eq = Z.M("Eq");
+        var str = Z.M("Str");
+        var implClause1 = Z.Impl0("numTrait", num, trait);
+        var clause2 = Z.AssocTy0("Item", trait, eq).Assoc("Item", str);
+        var goal = Z.NormG(num.Proj(trait, "Item").Proj(eq, "Item"), Z.Fv("a"));
+        var solver = new Solver([goal], [implClause1, clause2]);
+        var result = solver.Run();
+        Assert.NotNull(result);
+        Assert.Equal(str, result.Value.Match.Substitutions[Z.Fv("a")]);
+    }
+
+    [Fact]
+    public void Test17()
+    {
+        var num = Z.M("Num");
+        var trait = Z.M("Trait");
+        var eq = Z.M("Eq");
+        var str = Z.M("Str");
+        var implClause1 = Z.Impl0("numTrait", num, trait).Assoc("Item", str);
+        var implClause2 = Z.Impl0("strTrait", str, eq);
+        var clause2 = Z.AssocTy0("Item", trait, eq);
+        var goal = Z.NormG(num.Proj(trait, "Item").Proj(eq, "Item"), Z.Fv("a"));
+        var solver = new Solver([goal], [implClause1, clause2, implClause2]);
+        var result = solver.Run();
+        Assert.NotNull(result);
+        Assert.Equal(new IrAlias(str, eq, "Item"), result.Value.Match.Substitutions[Z.Fv("a")]);
+    }
+
+    [Fact]
+    public void Test18()
+    {
+        var num = Z.M("Num");
+        var trait = Z.M("Trait");
+        var eq = Z.M("Eq");
+        var str = Z.M("Str");
+        var implClause1 = Z.Impl0("numTrait", num, trait);
+        var clause2 = Z.AssocTy0("Item", trait, eq).Assoc("Item", str);
+        var goal = Z.NormG(num.Proj(trait, "Item").Proj(eq, "Item"), Z.Fv("a"));
+        var solver = new Solver([goal], [implClause1, clause2]);
+        var result = solver.Run();
+        Assert.NotNull(result);
+        Assert.Equal(str, result.Value.Match.Substitutions[Z.Fv("a")]);
+    }
+    
+    [Fact]
+    public void Test19()
+    {
+        var num = Z.M("Num");
+        var bol = Z.M("Bool");
+        var trait = Z.M("Trait");
+        var eq = Z.M("Eq");
+        var str = Z.M("Str");
+        var implClause1 = Z.Impl0("numTrait", num, trait).Assoc("Item", str);
+        var implClause2 = Z.Impl0("boolTrait", bol, trait).Assoc("Item", str);
+        var goal = Z.EqG(num.Proj(trait, "Item"), bol.Proj(trait, "Item"));
+        var solver = new Solver([goal], [implClause1, implClause2]);
+        var result = solver.Run();
+        Assert.NotNull(result);
     }
 }

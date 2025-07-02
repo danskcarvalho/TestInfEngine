@@ -20,7 +20,7 @@ public record AssocTyClause(
     // Ex.: Iterator<Item = str>, Item = is an assoc type constraint
     IReadOnlyDictionary<string, Term> AssocConstraints) : Clause
 {
-    public override string ToString() => $"{Trait}::{AliasName}: {Constraint.ToString(AssocConstraints)}";
+    public override string ToString() => $"?::<{Trait}>::{AliasName}: {Constraint.ToString(AssocConstraints)}";
 
     public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
 
