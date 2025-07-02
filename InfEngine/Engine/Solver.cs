@@ -244,35 +244,33 @@ public partial class Solver
         List<RecNormGoalChain> goalChains,
         List<EqGoal> eqGoals, ProofChain? proofChain, long recursionDepth)
     {
-        var toBeNormalized = eqGoals.Select((e, i) => (e, i)).Where(e => e.e.Left.Any<Alias>() || e.e.Right.Any<Alias>()).Select(x => x.i).ToList();
-
-        Dictionary<Alias, FreeVar> subs = new();
-        foreach (var index in toBeNormalized)
+        HashSet<Alias> aliases = new HashSet<Alias>();
+        foreach (var eqGoal in eqGoals)
         {
-            var n = eqGoals[index];
-            var left = n.Left.Replace<Alias>(a =>
+            aliases.UnionWith(eqGoal.Left.Descendants<Alias>());
+            aliases.UnionWith(eqGoal.Right.Descendants<Alias>());
+        }
+        var toBeNormalized = aliases.ToDictionary(x => x, _ => FreeVar.New());
+        var subs = new Dictionary<Alias, FreeVar>();
+        foreach (var alias in toBeNormalized)
+        {
+            var newAlias = (Alias)alias.Key.Replace<Alias>(x =>
             {
-                if (!subs.TryGetValue(a, out var existing))
+                if (x == alias.Key)
                 {
-                    var newVar = FreeVar.New();
-                    subs[a] = newVar;
-                    return newVar;
+                    return null;
                 }
-
-                return existing;
+                return toBeNormalized.GetValueOrDefault(x);
             });
-            var right = n.Right.Replace<Alias>(a =>
-            {
-                if (!subs.TryGetValue(a, out var existing))
-                {
-                    var newVar = FreeVar.New();
-                    subs[a] = newVar;
-                    return newVar;
-                }
+            subs[newAlias] = alias.Value;
+        }
 
-                return existing;
-            });
-            eqGoals[index] = new EqGoal(left, right);
+        for (int i = 0; i < eqGoals.Count; i++)
+        {
+            var n = eqGoals[i];
+            var left = n.Left.Replace<Alias>(a => toBeNormalized.GetValueOrDefault(a));
+            var right = n.Right.Replace<Alias>(a => toBeNormalized.GetValueOrDefault(a));
+            eqGoals[i] = new EqGoal(left, right);
         }
 
         foreach (var alias in subs.Keys)

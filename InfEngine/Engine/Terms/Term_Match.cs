@@ -58,6 +58,29 @@ public partial record Term
                     });
                 }
 
+                for (int i = 0; i < stack.Count; i++)
+                {
+                    var newLeft = stack[i].Left.Replace<FreeVar>(v =>
+                    {
+                        if (v == lv)
+                        {
+                            return right;
+                        }
+
+                        return null;
+                    });
+                    var newRight = stack[i].Right.Replace<FreeVar>(v =>
+                    {
+                        if (v == lv)
+                        {
+                            return right;
+                        }
+
+                        return null;
+                    });
+                    stack[i] = (newLeft, newRight);
+                }
+
                 result[lv] = right;
             }
             else if (right is FreeVar rv)
@@ -88,6 +111,29 @@ public partial record Term
 
                         return null;
                     });
+                }
+                
+                for (int i = 0; i < stack.Count; i++)
+                {
+                    var newLeft = stack[i].Left.Replace<FreeVar>(v =>
+                    {
+                        if (v == rv)
+                        {
+                            return right;
+                        }
+
+                        return null;
+                    });
+                    var newRight = stack[i].Right.Replace<FreeVar>(v =>
+                    {
+                        if (v == rv)
+                        {
+                            return right;
+                        }
+
+                        return null;
+                    });
+                    stack[i] = (newLeft, newRight);
                 }
 
                 result[rv] = left;

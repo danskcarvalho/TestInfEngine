@@ -133,7 +133,7 @@ public record TermMatch(
 
     public TermMatch Merge(TermMatch match)
     {
-        Dictionary<FreeVar, Term> result = this.Substitutions.ToDictionary();
+        Dictionary<FreeVar, Term> result = new();
         
         foreach (var key in this.Substitutions.Keys)
         {
@@ -142,7 +142,7 @@ public record TermMatch(
 
         foreach (var key in match.Substitutions.Keys)
         {
-            result[key] = match.Substitutions[key];
+            result[key] = match.Substitutions[key].Substitute(this);
         }
 
         return new TermMatch(result, this.LateEqGoals.Concat(match.LateEqGoals).ToList());

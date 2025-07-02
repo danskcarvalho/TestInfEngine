@@ -35,7 +35,7 @@ public record IrAlias(Term Target, Term Trait, string Name) : Term
                 return r;
         }
         
-        return new Alias(Target.Replace(replacement), Trait.Replace(replacement), Name);
+        return new IrAlias(Target.Replace(replacement), Trait.Replace(replacement), Name);
     }
 
     public override IEnumerable<T> Descendants<T>()
