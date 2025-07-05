@@ -2,6 +2,7 @@
 
 using InfEngine;
 using InfEngine.Engine;
+using InfEngine.Engine.Terms;
 
 var num = Z.M("Num");
 var bol = Z.M("Bool");

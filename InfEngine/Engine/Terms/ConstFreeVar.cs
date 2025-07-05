@@ -1,10 +1,10 @@
 namespace InfEngine.Engine.Terms;
 
-public record FreeVar(string Name) : Term
+public record ConstFreeVar(string Name) : Term
 {
     private static long _seed = 0;
     
-    public static FreeVar New() => new($"?v{++_seed}");
+    public static FreeVar New() => new($"?c{++_seed}");
     
     public override string ToString() => PrintVar($"?{Name}");
 

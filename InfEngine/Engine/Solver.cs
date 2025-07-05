@@ -155,10 +155,10 @@ public partial class Solver
 
         if (bestGoal.Impl != null)
         {
-            return new ImplsDriverFrame(this.GetImplCandidates(bestGoal.Impl!.Value).GetEnumerator());
+            return new ImplsOrNormsDriverFrame(this.GetImplCandidates(bestGoal.Impl!.Value).Take(2).ToList());
         }
 
-        return new NormsDriverFrame(this.GetNormCandidates(bestGoal.Norm!.Value).GetEnumerator());
+        return new ImplsOrNormsDriverFrame(this.GetNormCandidates(bestGoal.Norm!.Value).Take(2).ToList());
     }
 
     private (RecImplGoalChain? Impl, RecNormGoalChain? Norm) ElectBestGoal()

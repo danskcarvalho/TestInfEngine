@@ -233,6 +233,22 @@ public class NormTests
         var eq = Z.M("Eq");
         var str = Z.M("Str");
         var implClause1 = Z.Impl0("numTrait", num, trait).Assoc("Item", str);
+        var implClause2 = Z.Impl0("strTrait", str, eq);
+        var clause2 = Z.AssocTy0("Item", trait, eq);
+        var goal = Z.NormG(num.Proj(trait, "Item").Proj(eq, "Item"), Z.Fv("a"));
+        var solver = new Solver([goal], [implClause1, implClause2, clause2]);
+        var result = solver.Run();
+        Assert.NotNull(result);
+        Assert.Equal(new IrAlias(str, eq, "Item"), result.Value.Match.Substitutions[Z.Fv("a")]);
+    }
+    
+    [Fact]
+    public void Test20()
+    {
+        var num = Z.M("Num");
+        var trait = Z.M("Trait");
+        var eq = Z.M("Eq");
+        var implClause1 = Z.Impl0("numTrait", num, trait);
         var clause2 = Z.AssocTy0("Item", trait, eq);
         var goal = Z.NormG(num.Proj(trait, "Item").Proj(eq, "Item"), Z.Fv("a"));
         var solver = new Solver([goal], [implClause1, clause2]);

@@ -138,6 +138,7 @@ public partial class Solver
     
     private IEnumerable<Solver> GetNormCandidates(RecNormGoalChain normGoalChain)
     {
+        bool yieldedCandidate = false;
         foreach (var aliasClause in this._clauses.OfType<AliasImplClause>())
         {
             LogMsg("Trying norm candidate", "{0}", aliasClause);
@@ -167,78 +168,36 @@ public partial class Solver
                 var subsAlias = aliasClause.TyParams.ToDictionary(x => x, x => subs.Substitutions[newVars[x]]);
                 var candidate = this.BuildNormCandidate(aliasClause.Aliased.Substitute(subsAlias), subs, newVars, aliasClause, normGoalChain);
                 if (candidate != null)
+                {
+                    yieldedCandidate = true;
                     yield return candidate;
-            }
-        }
-        
-        foreach (var implClause in this._clauses.OfType<ImplClause>())
-        {
-            LogMsg("Trying norm candidate", "{0}", implClause);
-
-            if (!implClause.AssocConstraints.ContainsKey(normGoalChain.Goal.Alias.Name))
-            {
-                LogMsg("failed", $"no assoc constraint {normGoalChain.Goal.Alias.Name}");
-                continue;
-            }
-
-            var newVars = implClause.TyParams.Select(x => (BoundVar: x, FreeVar: FreeVar.New()))
-                                    .ToDictionary(x => x.BoundVar, x => x.FreeVar);
-            var trait = implClause.Trait.Replace<BoundVar>(b => newVars[b]);
-            var target = implClause.Target.Replace<BoundVar>(b => newVars[b]);
-            
-            LogMsg("Matching", "{0} = {1}", target, normGoalChain.Goal.Alias.Target);
-            LogMsg("Matching", "{0} = {1}", trait, normGoalChain.Goal.Alias.Trait);
-
-            var subs = Term.TryMatch(
-                new App("S", [target, trait]),
-                new App("S", [normGoalChain.Goal.Alias.Target, normGoalChain.Goal.Alias.Trait]));
-            if (subs == null)
-            {
-                Log("matching failed");
-                continue;
-            }
-
-            if (newVars.Keys.All(k => subs.Substitutions.ContainsKey(newVars[k])))
-            {
-                Log("matched clause {0}", implClause);
-                var aliased = implClause.AssocConstraints[normGoalChain.Goal.Alias.Name];
-                var subsAlias = implClause.TyParams.ToDictionary(x => x, x => subs.Substitutions[newVars[x]]);
-                var candidate = this.BuildNormCandidate(aliased.Substitute(subsAlias), subs, newVars, implClause, normGoalChain);
-                if (candidate != null)
-                    yield return candidate;
+                }
             }
         }
 
-        if (normGoalChain.Goal.Alias.Target is IrAlias irAlias)
+        if (!yieldedCandidate)
         {
-            foreach (var assocTyClause in this._clauses.OfType<AssocTyClause>())
+            foreach (var implClause in this._clauses.OfType<ImplClause>())
             {
-                LogMsg("Trying norm candidate", "{0}", assocTyClause);
-                
-                if (!assocTyClause.AssocConstraints.ContainsKey(normGoalChain.Goal.Alias.Name))
+                LogMsg("Trying norm candidate", "{0}", implClause);
+
+                if (!implClause.AssocConstraints.ContainsKey(normGoalChain.Goal.Alias.Name))
                 {
                     LogMsg("failed", $"no assoc constraint {normGoalChain.Goal.Alias.Name}");
                     continue;
                 }
 
-                if (assocTyClause.AliasName != irAlias.Name)
-                {
-                    LogMsg("failed", $"alias names differ {assocTyClause.AliasName} != {irAlias.Name}");
-                    continue;
-                }
+                var newVars = implClause.TyParams.Select(x => (BoundVar: x, FreeVar: FreeVar.New()))
+                                        .ToDictionary(x => x.BoundVar, x => x.FreeVar);
+                var trait = implClause.Trait.Replace<BoundVar>(b => newVars[b]);
+                var target = implClause.Target.Replace<BoundVar>(b => newVars[b]);
 
-                var newVars = assocTyClause.TyParams.Select(x => (BoundVar: x, FreeVar: FreeVar.New()))
-                                           .ToDictionary(x => x.BoundVar, x => x.FreeVar);
-                var trait = assocTyClause.Trait.Replace<BoundVar>(b => newVars[b]);
-                var constraint = assocTyClause.Constraint.Replace<BoundVar>(b => newVars[b]);
-                
-                LogMsg("Matching", "{0} = {1}", trait, irAlias.Trait);
-                LogMsg("Matching", "{0} = {1}", constraint, normGoalChain.Goal.Alias.Trait);
-                
+                LogMsg("Matching", "{0} = {1}", target, normGoalChain.Goal.Alias.Target);
+                LogMsg("Matching", "{0} = {1}", trait, normGoalChain.Goal.Alias.Trait);
+
                 var subs = Term.TryMatch(
-                    new App("S", [trait, constraint]),
-                    new App("S", [irAlias.Trait, normGoalChain.Goal.Alias.Trait]));
-                
+                    new App("S", [target, trait]),
+                    new App("S", [normGoalChain.Goal.Alias.Target, normGoalChain.Goal.Alias.Trait]));
                 if (subs == null)
                 {
                     Log("matching failed");
@@ -247,16 +206,77 @@ public partial class Solver
 
                 if (newVars.Keys.All(k => subs.Substitutions.ContainsKey(newVars[k])))
                 {
-                    Log("matched clause {0}", assocTyClause);
-                    var aliased = assocTyClause.AssocConstraints[normGoalChain.Goal.Alias.Name];
-                    var subsAlias = assocTyClause.TyParams.ToDictionary(x => x, x => subs.Substitutions[newVars[x]]);
-                    var candidate = this.BuildNormCandidate(aliased.Substitute(subsAlias), subs, newVars, assocTyClause, normGoalChain);
+                    Log("matched clause {0}", implClause);
+                    var aliased = implClause.AssocConstraints[normGoalChain.Goal.Alias.Name];
+                    var subsAlias = implClause.TyParams.ToDictionary(x => x, x => subs.Substitutions[newVars[x]]);
+                    var candidate = this.BuildNormCandidate(aliased.Substitute(subsAlias), subs, newVars, implClause,
+                        normGoalChain);
                     if (candidate != null)
+                    {
+                        yieldedCandidate = true;
                         yield return candidate;
+                    }
                 }
             }
         }
 
+        if (!yieldedCandidate)
+        {
+            if (normGoalChain.Goal.Alias.Target is IrAlias irAlias)
+            {
+                foreach (var assocTyClause in this._clauses.OfType<AssocTyClause>())
+                {
+                    LogMsg("Trying norm candidate", "{0}", assocTyClause);
+
+                    if (!assocTyClause.AssocConstraints.ContainsKey(normGoalChain.Goal.Alias.Name))
+                    {
+                        LogMsg("failed", $"no assoc constraint {normGoalChain.Goal.Alias.Name}");
+                        continue;
+                    }
+
+                    if (assocTyClause.AliasName != irAlias.Name)
+                    {
+                        LogMsg("failed", $"alias names differ {assocTyClause.AliasName} != {irAlias.Name}");
+                        continue;
+                    }
+
+                    var newVars = assocTyClause.TyParams.Select(x => (BoundVar: x, FreeVar: FreeVar.New()))
+                                               .ToDictionary(x => x.BoundVar, x => x.FreeVar);
+                    var trait = assocTyClause.Trait.Replace<BoundVar>(b => newVars[b]);
+                    var constraint = assocTyClause.Constraint.Replace<BoundVar>(b => newVars[b]);
+
+                    LogMsg("Matching", "{0} = {1}", trait, irAlias.Trait);
+                    LogMsg("Matching", "{0} = {1}", constraint, normGoalChain.Goal.Alias.Trait);
+
+                    var subs = Term.TryMatch(
+                        new App("S", [trait, constraint]),
+                        new App("S", [irAlias.Trait, normGoalChain.Goal.Alias.Trait]));
+
+                    if (subs == null)
+                    {
+                        Log("matching failed");
+                        continue;
+                    }
+
+                    if (newVars.Keys.All(k => subs.Substitutions.ContainsKey(newVars[k])))
+                    {
+                        Log("matched clause {0}", assocTyClause);
+                        var aliased = assocTyClause.AssocConstraints[normGoalChain.Goal.Alias.Name];
+                        var subsAlias =
+                            assocTyClause.TyParams.ToDictionary(x => x, x => subs.Substitutions[newVars[x]]);
+                        var candidate = this.BuildNormCandidate(aliased.Substitute(subsAlias), subs, newVars,
+                            assocTyClause, normGoalChain);
+                        if (candidate != null)
+                        {
+                            yieldedCandidate = true;
+                            yield return candidate;
+                        }
+                    }
+                }
+            }
+        }
+
+        if(!yieldedCandidate)
         {
             // NOTICE: This is only valid if we can prove the impl from the local environment (i.e. the function)
             // otherwise, we are not allowed to instroduce a irreducible alias.

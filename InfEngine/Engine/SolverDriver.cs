@@ -37,68 +37,33 @@ public partial class Solver
                     }
                     this._solvers.Add(newFrame);
                 }
-                else if (solvers is ImplsDriverFrame idf)
+                else if (solvers is ImplsOrNormsDriverFrame idf)
                 {
-                    MoveNext:
-                    if (idf.Solvers.MoveNext())
+                    if (idf.Solvers.Count == 1)
                     {
-                        if (idf.Solvers.Current._infRec)
+                        if (idf.Solvers[0]._infRec)
                         {
-                            goto MoveNext;
+                            return idf.Solvers[0];
                         }
 
-                        var newFrame = idf.Solvers.Current.InternalRun();
+                        var newFrame = idf.Solvers[0].InternalRun();
                         if (newFrame == null)
                         {
-                            continue;
-                        }
-                        Debug.Assert(newFrame is not RootFrame);
-                        if (newFrame is SuccessFrame)
-                        {
-                            return idf.Solvers.Current;
-                        }
-
-                        this._solvers.Add(newFrame);
-                    }
-                    else
-                    {
-                        this._solvers.RemoveAt(this._solvers.Count - 1);
-                        if (this._solvers.Count == 1)
-                        {
-                            // we returned to the root, so we're done
                             return null;
-                        }
-                    }
-                }
-                else if (solvers is NormsDriverFrame ndf)
-                {
-                    if (ndf.Solvers.MoveNext())
-                    {
-                        if (ndf.Solvers.Current._infRec)
-                        {
-                            return ndf.Solvers.Current;
                         }
                         
-                        var newFrame = ndf.Solvers.Current.InternalRun();
-                        if (newFrame == null)
-                        {
-                            continue;
-                        }
                         Debug.Assert(newFrame is not RootFrame);
                         if (newFrame is SuccessFrame)
                         {
-                            return ndf.Solvers.Current;
+                            return idf.Solvers[0];
                         }
+
                         this._solvers.Add(newFrame);
                     }
                     else
                     {
-                        this._solvers.RemoveAt(this._solvers.Count - 1);
-                        if (this._solvers.Count == 1)
-                        {
-                            // we returned to the root, so we're done
-                            return null;
-                        }
+                        // error: we're done
+                        return null;
                     }
                 }
                 else
@@ -111,6 +76,6 @@ public partial class Solver
 
     private record SuccessFrame : SolverDriverFrame;
     private record RootFrame(Solver Solver) : SolverDriverFrame;
-    private record ImplsDriverFrame(IEnumerator<Solver> Solvers) : SolverDriverFrame;
-    private record NormsDriverFrame(IEnumerator<Solver> Solvers) : SolverDriverFrame;
+
+    private record ImplsOrNormsDriverFrame(List<Solver> Solvers) : SolverDriverFrame;
 }
