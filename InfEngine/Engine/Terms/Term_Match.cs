@@ -17,7 +17,7 @@ public partial record Term
     
     private static TermMatch? InternalTryMatch(Term l, Term r, bool throwException) 
     {
-        Dictionary<FreeVar, Term> result = new Dictionary<FreeVar, Term>();
+        Dictionary<Term, Term> result = new Dictionary<Term, Term>();
         List<EqGoal> lateGoals = [];
         List<(Term Left, Term Right)> stack = [(l, r)];
 
@@ -33,6 +33,11 @@ public partial record Term
                 if (right is FreeVar rv2 && rv2.Name == lv.Name)
                 {
                     continue;
+                }
+
+                if (right is ConstFreeVar || right is Const || right is ConstBoundVar)
+                {
+                    return null;
                 }
 
                 if (right.Any<FreeVar>(v => v == lv))
@@ -89,6 +94,11 @@ public partial record Term
                 {
                     continue;
                 }
+                
+                if (left is ConstFreeVar || left is Const || left is ConstBoundVar)
+                {
+                    return null;
+                }
 
                 if (left.Any<FreeVar>(v => v == rv))
                 {
@@ -119,7 +129,7 @@ public partial record Term
                     {
                         if (v == rv)
                         {
-                            return right;
+                            return left;
                         }
 
                         return null;
@@ -127,6 +137,66 @@ public partial record Term
                     var newRight = stack[i].Right.Replace<FreeVar>(v =>
                     {
                         if (v == rv)
+                        {
+                            return left;
+                        }
+
+                        return null;
+                    });
+                    stack[i] = (newLeft, newRight);
+                }
+
+                result[rv] = left;
+            }
+            else if (left is ConstFreeVar clv)
+            {
+                if (right is ConstFreeVar rv2 && rv2.Name == clv.Name)
+                {
+                    continue;
+                }
+
+                if (right is App || right is BoundVar || right is IrAlias || right is Alias)
+                {
+                    return null;
+                }
+
+                if (right.Any<ConstFreeVar>(v => v == clv))
+                {
+                    if (throwException)
+                    {
+                        throw new MatchException($"{left} = {right}");
+                    }
+
+                    return null;
+                }
+
+                foreach (var k in result.Keys)
+                {
+                    result[k] = result[k].Replace<ConstFreeVar>(v =>
+                    {
+                        if (v == clv)
+                        {
+                            return right;
+                        }
+
+                        return null;
+                    });
+                }
+
+                for (int i = 0; i < stack.Count; i++)
+                {
+                    var newLeft = stack[i].Left.Replace<ConstFreeVar>(v =>
+                    {
+                        if (v == clv)
+                        {
+                            return right;
+                        }
+
+                        return null;
+                    });
+                    var newRight = stack[i].Right.Replace<ConstFreeVar>(v =>
+                    {
+                        if (v == clv)
                         {
                             return right;
                         }
@@ -136,7 +206,67 @@ public partial record Term
                     stack[i] = (newLeft, newRight);
                 }
 
-                result[rv] = left;
+                result[clv] = right;
+            }
+            else if (right is ConstFreeVar crv)
+            {
+                if (left is ConstFreeVar rv2 && rv2.Name == crv.Name)
+                {
+                    continue;
+                }
+
+                if (left is App || left is BoundVar || left is IrAlias || left is Alias)
+                {
+                    return null;
+                }
+
+                if (left.Any<ConstFreeVar>(v => v == crv))
+                {
+                    if (throwException)
+                    {
+                        throw new MatchException($"{left} = {right}");
+                    }
+
+                    return null;
+                }
+
+                foreach (var k in result.Keys)
+                {
+                    result[k] = result[k].Replace<ConstFreeVar>(v =>
+                    {
+                        if (v == crv)
+                        {
+                            return left;
+                        }
+
+                        return null;
+                    });
+                }
+
+                for (int i = 0; i < stack.Count; i++)
+                {
+                    var newLeft = stack[i].Left.Replace<ConstFreeVar>(v =>
+                    {
+                        if (v == crv)
+                        {
+                            return left;
+                        }
+
+                        return null;
+                    });
+                    var newRight = stack[i].Right.Replace<ConstFreeVar>(v =>
+                    {
+                        if (v == crv)
+                        {
+                            return left;
+                        }
+
+                        return null;
+                    });
+                    stack[i] = (newLeft, newRight);
+                }
+
+                result[crv] = left;
             }
             else if (left is Alias || right is Alias)
             {
@@ -159,6 +289,18 @@ public partial record Term
                     stack.Add((al.Args[i], ar.Args[i]));
                 }
             }
+            else if (left is Const cl && right is Const cr)
+            {
+                if (cl.Name != cr.Name)
+                {
+                    if (throwException)
+                    {
+                        throw new MatchException($"{left} = {right}");
+                    }
+
+                    return null;
+                }
+            }
             else if (left is IrAlias il && right is IrAlias ir)
             {
                 if (il.Name != ir.Name)
@@ -177,6 +319,18 @@ public partial record Term
             else if (left is BoundVar bl && right is BoundVar br)
             {
                 if (bl.Index != br.Index)
+                {
+                    if (throwException)
+                    {
+                        throw new MatchException($"{left} = {right}");
+                    }
+
+                    return null;
+                }
+            }
+            else if (left is ConstBoundVar cbl && right is ConstBoundVar cbr)
+            {
+                if (cbl.Index != cbr.Index)
                 {
                     if (throwException)
                     {

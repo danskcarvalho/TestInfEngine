@@ -13,6 +13,7 @@ namespace InfEngine.Engine.Clauses;
 //      type It: Iterator<Item=int>
 // Then Trait = Iterable, AliasName = It, Constraint = Iterator, AssocConstraints = {Item: int}
 public record AssocTyClause(
+    BoundVar SelfParam,
     ImmutableArray<BoundVar> TyParams,
     Term Trait,
     string AliasName,

@@ -242,15 +242,17 @@ public partial class Solver
 
                     var newVars = assocTyClause.TyParams.Select(x => (BoundVar: x, FreeVar: FreeVar.New()))
                                                .ToDictionary(x => x.BoundVar, x => x.FreeVar);
+                    newVars[assocTyClause.SelfParam] = FreeVar.New();
                     var trait = assocTyClause.Trait.Replace<BoundVar>(b => newVars[b]);
                     var constraint = assocTyClause.Constraint.Replace<BoundVar>(b => newVars[b]);
 
+                    LogMsg("Matching Self", "{0} = {1}", newVars[assocTyClause.SelfParam], irAlias.Target);
                     LogMsg("Matching", "{0} = {1}", trait, irAlias.Trait);
                     LogMsg("Matching", "{0} = {1}", constraint, normGoalChain.Goal.Alias.Trait);
 
                     var subs = Term.TryMatch(
-                        new App("S", [trait, constraint]),
-                        new App("S", [irAlias.Trait, normGoalChain.Goal.Alias.Trait]));
+                        new App("S", [newVars[assocTyClause.SelfParam], trait, constraint]),
+                        new App("S", [irAlias.Target, irAlias.Trait, normGoalChain.Goal.Alias.Trait]));
 
                     if (subs == null)
                     {

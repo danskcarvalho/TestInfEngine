@@ -116,31 +116,32 @@ public static class Z
     public static ZAssocTy Assoc(this ZAssocTy ic, string name, Term constraint) =>
         ic with { AssocConstraints = AddAssocConstraint(ic.AssocConstraints, name, constraint) };
     
-    public static AssocTyClause Assoc(this AssocTyClause ic, string name, Term constraint) =>
-        ic with { AssocConstraints = AddAssocConstraint(ic.AssocConstraints, name, constraint) };
-    
-    public static AssocTyClause AssocTy0(string aliasName, Term trait, Term constraint) =>
-        new(ImmutableArray<BoundVar>.Empty, trait, aliasName, constraint, ReadOnlyDictionary<string, Term>.Empty);
-
-    public static AssocTyClause AssocTy1(string aliasName, Func<BoundVar, ZAssocTy> fn)
+    public static AssocTyClause AssocTy0(string aliasName, Func<BoundVar, ZAssocTy> fn)
     {
         var vars = new[] { new BoundVar(0) };
         var alias = fn(vars[0]);
-        return new([vars[0]], alias.Trait, aliasName, alias.Constraint, alias.AssocConstraints);
+        return new(vars[0], [], alias.Trait, aliasName, alias.Constraint, alias.AssocConstraints);
     }
-    
-    public static AssocTyClause AssocTy2(string aliasName, Func<BoundVar, BoundVar, ZAssocTy> fn)
+
+    public static AssocTyClause AssocTy1(string aliasName, Func<BoundVar, BoundVar, ZAssocTy> fn)
     {
-        var vars = new BoundVar[] { new BoundVar(0), new BoundVar(1) };
+        var vars = new[] { new BoundVar(0), new BoundVar(0) };
         var alias = fn(vars[0], vars[1]);
-        return new([vars[0], vars[1]], alias.Trait, aliasName, alias.Constraint, alias.AssocConstraints);
+        return new(vars[0], [vars[1]], alias.Trait, aliasName, alias.Constraint, alias.AssocConstraints);
     }
     
-    public static AssocTyClause AssocTy3(string aliasName, Func<BoundVar, BoundVar, BoundVar, ZAssocTy> fn)
+    public static AssocTyClause AssocTy2(string aliasName, Func<BoundVar, BoundVar, BoundVar, ZAssocTy> fn)
     {
-        var vars = new BoundVar[] { new BoundVar(0), new BoundVar(1), new BoundVar(2) };
+        var vars = new BoundVar[] { new BoundVar(0), new BoundVar(0), new BoundVar(1) };
         var alias = fn(vars[0], vars[1], vars[2]);
-        return new([vars[0], vars[1], vars[2]], alias.Trait, aliasName, alias.Constraint, alias.AssocConstraints);
+        return new(vars[0], [vars[1], vars[2]], alias.Trait, aliasName, alias.Constraint, alias.AssocConstraints);
+    }
+    
+    public static AssocTyClause AssocTy3(string aliasName, Func<BoundVar, BoundVar, BoundVar, BoundVar, ZAssocTy> fn)
+    {
+        var vars = new BoundVar[] { new BoundVar(0), new BoundVar(0), new BoundVar(1), new BoundVar(2) };
+        var alias = fn(vars[0], vars[1], vars[2], vars[3]);
+        return new(vars[0], [vars[1], vars[2], vars[3]], alias.Trait, aliasName, alias.Constraint, alias.AssocConstraints);
     }
 }
 

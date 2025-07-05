@@ -27,7 +27,7 @@ public abstract partial record Term
         }
     }
 
-    public Term Substitute(IReadOnlyDictionary<FreeVar, Term> substitutions)
+    public Term Substitute(IReadOnlyDictionary<Term, Term> substitutions)
     {
         return this.Replace<FreeVar>(substitutions.GetValueOrDefault);
     }

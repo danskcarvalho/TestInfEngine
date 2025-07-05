@@ -3,10 +3,10 @@ using InfEngine.Engine.Goals;
 namespace InfEngine.Engine.Terms;
 
 public record TermMatch(
-    IReadOnlyDictionary<FreeVar, Term> Substitutions,
+    IReadOnlyDictionary<Term, Term> Substitutions,
     IReadOnlyList<EqGoal> LateEqGoals)
 {
-    public static readonly TermMatch Empty = new(new Dictionary<FreeVar, Term>(), new List<EqGoal>());
+    public static readonly TermMatch Empty = new(new Dictionary<Term, Term>(), new List<EqGoal>());
 
     public bool IsEmpty => Substitutions.Count == 0;
 
@@ -14,13 +14,13 @@ public record TermMatch(
     /// Gives, for each variable, a set of all the other variables it's equal to.
     /// </summary>
     /// <returns></returns>
-    public IReadOnlyDictionary<FreeVar, HashSet<FreeVar>> ToEqualitySet()
+    public IReadOnlyDictionary<Term, HashSet<Term>> ToEqualitySet()
     {
-        var res = new Dictionary<FreeVar, HashSet<FreeVar>>();
+        var res = new Dictionary<Term, HashSet<Term>>();
         
         foreach (var pair in Substitutions)
         {
-            HashSet<FreeVar> left; 
+            HashSet<Term> left; 
             if (res.ContainsKey(pair.Key))
             {
                 left = res[pair.Key];
@@ -28,7 +28,7 @@ public record TermMatch(
             }
             else
             {
-                var hs = left = new HashSet<FreeVar>();
+                var hs = left = new HashSet<Term>();
                 res[pair.Key] = hs;
                 hs.Add(pair.Key);
             }
@@ -37,13 +37,31 @@ public record TermMatch(
             {
                 if (!res.ContainsKey(v))
                 {
-                    var hs = new HashSet<FreeVar>();
+                    var hs = new HashSet<Term>();
                     res[v] = hs;
                     hs.Add(v);
                 }
                 
-                var union = new HashSet<FreeVar>();
+                var union = new HashSet<Term>();
                 union.UnionWith(res[v]);
+                union.UnionWith(left);
+                foreach (var var in union)
+                {
+                    res[var].UnionWith(union);
+                }
+            }
+            
+            if (pair.Value is ConstFreeVar cv)
+            {
+                if (!res.ContainsKey(cv))
+                {
+                    var hs = new HashSet<Term>();
+                    res[cv] = hs;
+                    hs.Add(cv);
+                }
+                
+                var union = new HashSet<Term>();
+                union.UnionWith(res[cv]);
                 union.UnionWith(left);
                 foreach (var var in union)
                 {
@@ -55,6 +73,18 @@ public record TermMatch(
         foreach (var pair in Substitutions)
         {
             foreach (var v in pair.Value.Descendants<FreeVar>())
+            {
+                if (res.ContainsKey(v))
+                {
+                    res[v].Add(v);
+                }
+                else
+                {
+                    res[v] = [v];
+                }
+            }
+            
+            foreach (var v in pair.Value.Descendants<ConstFreeVar>())
             {
                 if (res.ContainsKey(v))
                 {
@@ -75,13 +105,13 @@ public record TermMatch(
     /// If ?a = List<?c, Dictionary<?d, ?e>> then ?a is related to ?d, ?e and ?c
     /// </summary>
     /// <returns></returns>
-    public IReadOnlyDictionary<FreeVar, HashSet<FreeVar>> ToRelatedSet()
+    public IReadOnlyDictionary<Term, HashSet<Term>> ToRelatedSet()
     {
-        var res = new Dictionary<FreeVar, HashSet<FreeVar>>();
+        var res = new Dictionary<Term, HashSet<Term>>();
         
         foreach (var pair in Substitutions)
         {
-            HashSet<FreeVar> left; 
+            HashSet<Term> left; 
             if (res.ContainsKey(pair.Key))
             {
                 left = res[pair.Key];
@@ -89,7 +119,7 @@ public record TermMatch(
             }
             else
             {
-                var hs = left = new HashSet<FreeVar>();
+                var hs = left = new HashSet<Term>();
                 res[pair.Key] = hs;
                 hs.Add(pair.Key);
             }
@@ -98,12 +128,30 @@ public record TermMatch(
             {
                 if (!res.ContainsKey(v))
                 {
-                    var hs = new HashSet<FreeVar>();
+                    var hs = new HashSet<Term>();
                     res[v] = hs;
                     hs.Add(v);
                 }
                 
-                var union = new HashSet<FreeVar>();
+                var union = new HashSet<Term>();
+                union.UnionWith(res[v]);
+                union.UnionWith(left);
+                foreach (var var in union)
+                {
+                    res[var].UnionWith(union);
+                }
+            }
+            
+            foreach (var v in pair.Value.DescendantsAndSelf<ConstFreeVar>())
+            {
+                if (!res.ContainsKey(v))
+                {
+                    var hs = new HashSet<Term>();
+                    res[v] = hs;
+                    hs.Add(v);
+                }
+                
+                var union = new HashSet<Term>();
                 union.UnionWith(res[v]);
                 union.UnionWith(left);
                 foreach (var var in union)
@@ -126,6 +174,18 @@ public record TermMatch(
                     res[v] = [v];
                 }
             }
+            
+            foreach (var v in pair.Value.Descendants<ConstFreeVar>())
+            {
+                if (res.ContainsKey(v))
+                {
+                    res[v].Add(v);
+                }
+                else
+                {
+                    res[v] = [v];
+                }
+            }
         }
         
         return res;
@@ -133,7 +193,7 @@ public record TermMatch(
 
     public TermMatch Merge(TermMatch match)
     {
-        Dictionary<FreeVar, Term> result = new();
+        Dictionary<Term, Term> result = new();
         
         foreach (var key in this.Substitutions.Keys)
         {

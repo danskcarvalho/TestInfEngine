@@ -218,15 +218,17 @@ public partial class Solver
                 var newVars = clause.TyParams
                                     .Select(x => (BoundVar: x, FreeVar: FreeVar.New()))
                                     .ToDictionary(x => x.BoundVar, x => x.FreeVar);
+                newVars[clause.SelfParam] = FreeVar.New();
                 var trait = clause.Trait.Replace<BoundVar>(b => newVars[b]);
                 var constraint = clause.Constraint.Replace<BoundVar>(b => newVars[b]);
                 
+                LogMsg("Matching Self", "{0} = {1}", newVars[clause.SelfParam], irAlias.Target);
                 LogMsg("Matching", "{0} = {1}", trait, irAlias.Trait);
                 LogMsg("Matching", "{0} = {1}", constraint, implGoal.Goal.Trait);
                 
                 var subs = Term.TryMatch(
-                    new App("S", [trait, constraint]),
-                    new App("S", [irAlias.Trait, implGoal.Goal.Trait]));
+                    new App("S", [newVars[clause.SelfParam], trait, constraint]),
+                    new App("S", [irAlias.Target, irAlias.Trait, implGoal.Goal.Trait]));
                 
                 if (subs == null)
                 {
